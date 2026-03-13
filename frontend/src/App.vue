@@ -2,6 +2,7 @@
 import { onMounted } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import { useAppStore } from '@/stores/app'
+import AppDialog from '@/components/AppDialog.vue'
 
 const store = useAppStore()
 const route = useRoute()
@@ -12,14 +13,15 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col h-screen bg-gray-50">
-    <!-- 메인 콘텐츠 -->
-    <main class="flex-1 overflow-y-auto pb-16">
+  <div class="h-screen flex flex-col bg-gray-50 overflow-hidden">
+    <AppDialog />
+    <!-- 각 뷰가 자체적으로 flex-col + 스크롤 구조를 가짐 -->
+    <main class="flex-1 overflow-hidden">
       <RouterView />
     </main>
 
-    <!-- 하단 탭바 -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex z-50">
+    <!-- 하단 탭바 (고정) -->
+    <nav class="flex-shrink-0 bg-white border-t border-gray-200 flex z-50">
       <RouterLink
         to="/"
         class="flex-1 flex flex-col items-center py-2 text-xs gap-1"

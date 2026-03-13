@@ -1,20 +1,21 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useAppStore } from '@/stores/app'
+import { useDialog } from '@/composables/useDialog'
 import { categoriesApi, paymentMethodsApi, pointBudgetsApi, settingsApi } from '@/api'
 import type { CategoryType, PaymentMethodType } from '@/types'
 
 const store = useAppStore()
+const { showConfirm, showAlert } = useDialog()
 
-// ── 월 시작일 ────────────────────────────────────────────────────────────
+// ── 월 시작일 ─────────────────────────────────────────────────────────────
 const monthStartDay = ref(store.settings.monthStartDay)
 async function saveMonthStartDay() {
   await settingsApi.update(monthStartDay.value)
   store.settings.monthStartDay = monthStartDay.value
-  alert('저장되었습니다.')
 }
 
-// ── 카테고리 ─────────────────────────────────────────────────────────────
+// ── 카테고리 ──────────────────────────────────────────────────────────────
 const newCatName = ref('')
 const newCatType = ref<CategoryType>('Expense')
 const catError = ref('')
@@ -32,17 +33,17 @@ async function addCategory() {
 }
 
 async function deleteCategory(id: number, isDefault: boolean) {
-  if (isDefault) { alert('기본 카테고리는 삭제할 수 없습니다.'); return }
-  if (!confirm('카테고리를 삭제하시겠습니까?')) return
+  if (isDefault) { await showAlert('기본 카테고리는 삭제할 수 없습니다.'); return }
+  if (!await showConfirm('카테고리를 삭제하시겠습니까?')) return
   try {
     await categoriesApi.delete(id)
     await store.loadMasterData()
   } catch {
-    alert('연결된 거래가 있어 삭제할 수 없습니다.')
+    await showAlert('연결된 거래가 있어 삭제할 수 없습니다.')
   }
 }
 
-// ── 결제수단 ─────────────────────────────────────────────────────────────
+// ── 결제수단 ──────────────────────────────────────────────────────────────
 const newMethodName = ref('')
 const newMethodType = ref<PaymentMethodType>('Cash')
 const newPointBudgetId = ref<number | undefined>()
@@ -69,13 +70,13 @@ async function addMethod() {
 }
 
 async function deleteMethod(id: number, isDefault: boolean) {
-  if (isDefault) { alert('기본 결제수단은 삭제할 수 없습니다.'); return }
-  if (!confirm('결제수단을 삭제하시겠습니까?')) return
+  if (isDefault) { await showAlert('기본 결제수단은 삭제할 수 없습니다.'); return }
+  if (!await showConfirm('결제수단을 삭제하시겠습니까?')) return
   try {
     await paymentMethodsApi.delete(id)
     await store.loadMasterData()
   } catch {
-    alert('연결된 거래가 있어 삭제할 수 없습니다.')
+    await showAlert('연결된 거래가 있어 삭제할 수 없습니다.')
   }
 }
 
@@ -105,13 +106,16 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="max-w-lg mx-auto pb-4">
-    <!-- 헤더 -->
-    <div class="bg-blue-600 text-white px-4 pt-10 pb-4">
+  <!-- 화면 전체를 채우는 flex 컬럼 컨테이너 -->
+  <div class="h-full flex flex-col max-w-lg mx-auto">
+
+    <!-- ── 고정 헤더 ── -->
+    <div class="flex-shrink-0 bg-blue-600 text-white px-4 pt-10 pb-4">
       <h1 class="text-lg font-semibold">설정</h1>
     </div>
 
-    <div class="px-4 space-y-6 mt-4">
+    <!-- ── 스크롤 가능한 설정 목록 ── -->
+    <div class="flex-1 overflow-y-auto px-4 py-4 space-y-6">
 
       <!-- 월 시작일 -->
       <section class="bg-white rounded-2xl p-4 shadow-sm">
@@ -147,7 +151,6 @@ onMounted(() => {
       <!-- 카테고리 -->
       <section class="bg-white rounded-2xl p-4 shadow-sm">
         <h2 class="font-semibold text-gray-700 mb-3">카테고리</h2>
-
         <div class="mb-2">
           <p class="text-xs text-gray-400 mb-1">지출</p>
           <div class="flex flex-wrap gap-2">
@@ -168,7 +171,6 @@ onMounted(() => {
             </div>
           </div>
         </div>
-
         <div class="flex gap-2">
           <select v-model="newCatType" class="border border-gray-200 rounded-xl px-2 py-2 text-sm focus:outline-none focus:border-blue-400">
             <option value="Expense">지출</option>
@@ -183,7 +185,6 @@ onMounted(() => {
       <!-- 결제수단 -->
       <section class="bg-white rounded-2xl p-4 shadow-sm">
         <h2 class="font-semibold text-gray-700 mb-3">결제수단</h2>
-
         <div class="flex flex-wrap gap-2 mb-3">
           <div v-for="m in store.paymentMethods" :key="m.id"
             class="flex items-center gap-1 bg-gray-100 text-gray-700 text-xs px-2.5 py-1.5 rounded-full">
@@ -192,7 +193,6 @@ onMounted(() => {
             <button v-if="!m.isDefault" @click="deleteMethod(m.id, m.isDefault)" class="text-gray-400 hover:text-red-500">✕</button>
           </div>
         </div>
-
         <div class="space-y-2">
           <div class="flex gap-2">
             <select v-model="newMethodType" class="border border-gray-200 rounded-xl px-2 py-2 text-sm focus:outline-none focus:border-blue-400">
@@ -203,8 +203,8 @@ onMounted(() => {
             <input v-model="newMethodName" placeholder="결제수단 이름" class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
             <button @click="addMethod" class="text-sm bg-blue-600 text-white px-3 py-2 rounded-xl">추가</button>
           </div>
-          <div v-if="newMethodType === 'Point'" class="flex gap-2">
-            <select v-model="newPointBudgetId" class="flex-1 border border-gray-200 rounded-xl px-2 py-2 text-sm focus:outline-none focus:border-blue-400">
+          <div v-if="newMethodType === 'Point'">
+            <select v-model="newPointBudgetId" class="w-full border border-gray-200 rounded-xl px-2 py-2 text-sm focus:outline-none focus:border-blue-400">
               <option :value="undefined">포인트 예산 선택</option>
               <option v-for="p in store.pointBudgets" :key="p.id" :value="p.id">{{ p.name }}</option>
             </select>

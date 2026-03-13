@@ -101,9 +101,9 @@ onMounted(loadData)
 </script>
 
 <template>
-  <div class="max-w-lg mx-auto">
-    <!-- 헤더 -->
-    <div class="bg-blue-600 text-white px-4 pt-10 pb-4">
+  <div class="h-full flex flex-col max-w-lg mx-auto">
+    <!-- 고정 헤더 -->
+    <div class="flex-shrink-0 bg-blue-600 text-white px-4 pt-10 pb-4">
       <div class="flex items-center justify-between">
         <button @click="store.prevMonth()" class="p-1 rounded-full hover:bg-blue-500">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -119,6 +119,8 @@ onMounted(loadData)
       </div>
     </div>
 
+    <!-- 스크롤 가능한 콘텐츠 -->
+    <div class="flex-1 overflow-y-auto">
     <div v-if="loading" class="py-20 text-center text-gray-400 text-sm">불러오는 중...</div>
 
     <template v-else>
@@ -153,5 +155,6 @@ onMounted(loadData)
         <canvas v-else ref="barCanvas" class="max-h-48" />
       </div>
     </template>
+    </div>
   </div>
 </template>
