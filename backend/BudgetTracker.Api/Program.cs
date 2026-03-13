@@ -44,16 +44,13 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// ── 개발 환경: Swagger UI 활성화 ───────────────────────────────────────────
-if (app.Environment.IsDevelopment())
+// ── Swagger UI (전 환경 활성화) ────────────────────────────────────────────
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "BudgetTracker API v1");
-        c.RoutePrefix = "swagger";
-    });
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "BudgetTracker API v1");
+    c.RoutePrefix = "swagger";
+});
 
 app.UseCors("DefaultCors");
 app.UseAuthorization();
