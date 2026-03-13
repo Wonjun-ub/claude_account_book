@@ -11,15 +11,12 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<BudgetTrackerDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-// ── CORS 정책 ──────────────────────────────────────────────────────────────
-var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-    ?? ["http://localhost:5173"];
-
+// ── CORS 정책 (MVP: 인증 추가 전까지 전체 허용) ────────────────────────────
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("DefaultCors", policy =>
     {
-        policy.WithOrigins(corsOrigins)
+        policy.AllowAnyOrigin()
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
