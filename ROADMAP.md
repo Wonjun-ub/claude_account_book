@@ -49,12 +49,12 @@
 
 ## Phase 0: 프로젝트 초기 설정
 
-- ⬜ 기존 코드 정리
-- ⬜ .NET 8.0 Web API 프로젝트 생성 (backend/BudgetTracker.Api/)
-- ⬜ Vue3 + Vite + TS 프론트 생성 (frontend/)
-- ⬜ Supabase PostgreSQL + EF Core 설정
-- ⬜ CI 워크플로우 .NET 기반으로 구성
-- ⬜ .env.example 작성
+- ✅ 기존 코드 정리 (Python/FastAPI 템플릿 → .NET + Vue3 교체)
+- ✅ .NET 8.0 Web API 프로젝트 생성 (backend/BudgetTracker.Api/)
+- ✅ Vue3 + Vite + TS 프론트 생성 (frontend/)
+- ✅ Supabase PostgreSQL + EF Core 설정 (마이그레이션 적용 완료)
+- ✅ CI 워크플로우 .NET 기반으로 구성
+- ✅ .env.example 작성
 - ⬜ Render 프론트엔드 서비스 생성 및 GitHub 연동
 - ⬜ Render 백엔드 서비스 생성 및 GitHub 연동
 - ⬜ Render 환경변수 설정 (DB 연결 정보 등)
@@ -67,16 +67,16 @@
 
 | ID | 태스크 | 상태 | 설명 |
 |----|--------|------|------|
-| T1 | 프로젝트 구조 설정 | ⬜ | .NET 솔루션 + Vue3 초기화 |
-| T2 | DB 모델 및 마이그레이션 | ⬜ | Transaction, Category, PaymentMethod, PointBudget, RecurringTransaction 엔티티 |
-| T3 | 거래 CRUD API | ⬜ | GET/POST/PUT/DELETE /api/transactions (합산포함여부, 결제수단 포함) |
-| T4 | 카테고리 API | ⬜ | GET/POST/PUT/DELETE /api/categories |
-| T5 | 결제수단 API | ⬜ | GET/POST/PUT/DELETE /api/payment-methods |
-| T6 | 포인트 예산 API | ⬜ | GET/POST /api/point-budgets + 잔액 차감 처리 |
-| T7 | 반복 지출 API | ⬜ | GET/POST /api/recurring-transactions + 자동 반영 로직 |
-| T8 | 월별 요약 API | ⬜ | GET /api/summary/monthly (커스텀 시작일 기준) |
-| T9 | 통계 API | ⬜ | GET /api/summary/category, /api/summary/trend |
-| T10 | 검색/필터 API | ⬜ | GET /api/transactions?category=&paymentMethod=&from=&to=&keyword= |
+| T1 | 프로젝트 구조 설정 | ✅ | .NET 솔루션 + Vue3 초기화 |
+| T2 | DB 모델 및 마이그레이션 | ✅ | Transaction, Category, PaymentMethod, PointBudget, RecurringTransaction 엔티티 |
+| T3 | 거래 CRUD API | ✅ | GET/POST/PUT/DELETE /api/transactions (합산포함여부, 결제수단 포함) |
+| T4 | 카테고리 API | ✅ | GET/POST/PUT/DELETE /api/categories |
+| T5 | 결제수단 API | ✅ | GET/POST/PUT/DELETE /api/payment-methods |
+| T6 | 포인트 예산 API | ✅ | GET/POST /api/point-budgets + 잔액 차감 처리 |
+| T7 | 반복 지출 API | ✅ | GET/POST /api/recurring-transactions + 자동 반영 로직 |
+| T8 | 월별 요약 API | ✅ | GET /api/summary/monthly (커스텀 시작일 기준) |
+| T9 | 통계 API | ✅ | GET /api/summary/category, /api/summary/trend |
+| T10 | 검색/필터 API | ✅ | GET /api/transactions?category=&paymentMethod=&from=&to=&keyword= |
 
 ---
 
