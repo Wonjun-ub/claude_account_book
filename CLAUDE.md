@@ -1,10 +1,10 @@
-# choiji-guide-big
+# BudgetTracker
 
-Claude Code 설정 예제 + 개발 프로세스 템플릿 프로젝트입니다.
+개인 가계부 웹앱 (MVP) — .NET 8 + Vue3 + Supabase PostgreSQL
 
 ## 저장소
 
-- **원격 저장소**: [https://github.com/frogy95/choiji-guide-big.git](https://github.com/frogy95/choiji-guide-big.git)
+- **원격 저장소**: [https://github.com/wonjun0822/claude_toy_project.git](https://github.com/wonjun0822/claude_toy_project.git)
 
 ## 기술 스택
 
