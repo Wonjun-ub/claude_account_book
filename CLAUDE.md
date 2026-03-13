@@ -127,6 +127,53 @@ hotfix/*  →  PR to main  →  서버 자동 배포  →  main을 develop에 �
 - `VITE_API_URL`은 **빌드 타임**에 주입됨 → Render 대시보드 환경변수 설정 불필요
 - `.env.staging` / `.env.production` 파일 값이 직접 빌드에 반영됨
 
+## 백엔드 환경변수 관리
+
+백엔드는 .NET의 `appsettings.{Environment}.json` 파일 시스템으로 환경을 분리합니다.
+**민감 정보(DB 연결 문자열 등)는 절대 git에 커밋하지 마세요.**
+
+### 환경별 파일
+
+| 파일 | 적용 환경 | git 커밋 | 용도 |
+|------|-----------|----------|------|
+| `appsettings.json` | 전 환경 공통 기본값 | ✅ 커밋 | 로깅 기본값, AllowedHosts |
+| `appsettings.Development.json` | 로컬 개발 | ❌ gitignored | DB 연결 문자열, 상세 로깅 |
+
+> `.gitignore` 규칙: `appsettings.*.json` 전부 제외 (`appsettings.json` 제외)
+
+### 환경별 설정값
+
+| 항목 | 로컬 (Development) | Render 배포 (Production) | 관리 방식 |
+|------|-------------------|--------------------------|-----------|
+| `ConnectionStrings__DefaultConnection` | `appsettings.Development.json` | **Render 대시보드 env var** | 민감 → 파일 커밋 불가 |
+| `ASPNETCORE_ENVIRONMENT` | `Development` (자동) | `Production` (`render.yaml`에 명시) | 비민감 |
+| 로깅 레벨 | Debug (Development.json) | Information (`appsettings.json`) | 이미 분리됨 |
+| CORS | AllowAnyOrigin (MVP) | 동일 | 코드에서 관리 |
+
+### 로컬 개발 초기 설정
+
+`backend/BudgetTracker.Api/appsettings.Development.json` 파일을 직접 생성 (git에 없음):
+```json
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Debug",
+      "Microsoft.AspNetCore": "Information",
+      "Microsoft.EntityFrameworkCore.Database.Command": "Information"
+    }
+  },
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=<supabase-host>;Port=5432;Database=postgres;Username=<user>;Password=<password>;SSL Mode=Require;Trust Server Certificate=true"
+  }
+}
+```
+
+### Render 배포 시 필수 env var
+
+`budget-tracker-api` 서비스에 반드시 설정:
+- `ConnectionStrings__DefaultConnection` = Supabase 연결 문자열
+- `ASPNETCORE_ENVIRONMENT` = `Production` (render.yaml에 이미 포함)
+
 ## Notion 기술 문서 관리
 
 - **Notion 루트 페이지**: (새 프로젝트 시작 시 설정 필요)
