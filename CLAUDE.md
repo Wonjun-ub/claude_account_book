@@ -98,6 +98,35 @@ hotfix/*  →  PR to main  →  서버 자동 배포  →  main을 develop에 �
   - 미완료 항목: `- ⬜ 항목 내용`
   - GFM `[x]`/`[ ]` 대신 이모지를 사용하여 마크다운 미리보기에서 시각적 구분을 보장합니다.
 
+## 프론트엔드 환경변수 관리
+
+프론트엔드는 Vite의 `.env` 파일 시스템으로 환경별 설정을 분리합니다.
+**절대로 환경변수를 코드에 하드코딩하지 마세요.** 항상 아래 파일을 수정하세요.
+
+### 환경별 파일
+
+| 파일 | 적용 환경 | 빌드 명령 |
+|------|-----------|-----------|
+| `frontend/.env.development` | 로컬 개발 | `vite dev` (자동) |
+| `frontend/.env.staging` | develop 브랜치 → Render 스테이징 | `vite build --mode staging` |
+| `frontend/.env.production` | main 브랜치 → Render 프로덕션 | `vite build` (자동) |
+
+### 현재 환경변수 목록
+
+| 키 | 설명 | development | staging | production |
+|----|------|-------------|---------|------------|
+| `VITE_API_URL` | 백엔드 API 기본 URL | `http://localhost:5244` | `https://budget-tracker-api-51n7.onrender.com` | `https://budget-tracker-api-51n7.onrender.com` |
+
+### 규칙
+- `*.local` 파일은 `.gitignore`에 포함 → 커밋 금지 (민감 정보용)
+- `.env.development`, `.env.staging`, `.env.production`은 커밋 대상 (URL 등 비민감 정보만 포함)
+- 새 환경변수 추가 시 세 파일 모두 업데이트하고 이 표도 함께 갱신
+- `render.yaml`의 프론트엔드 `buildCommand`에 `--mode staging` 포함 확인
+
+### Render 배포 시 주의
+- `VITE_API_URL`은 **빌드 타임**에 주입됨 → Render 대시보드 환경변수 설정 불필요
+- `.env.staging` / `.env.production` 파일 값이 직접 빌드에 반영됨
+
 ## Notion 기술 문서 관리
 
 - **Notion 루트 페이지**: (새 프로젝트 시작 시 설정 필요)
