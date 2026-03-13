@@ -1,5 +1,5 @@
 // API 기본 URL — 환경변수가 없으면 로컬 개발 서버로 폴백
-const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5244'
+const BASE_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:5244').trim()
 
 export const apiClient = {
   async get<T>(path: string): Promise<T> {
