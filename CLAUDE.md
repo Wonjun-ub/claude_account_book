@@ -4,7 +4,7 @@
 
 ## 저장소
 
-- **원격 저장소**: [https://github.com/wonjun0822/claude_toy_project.git](https://github.com/wonjun0822/claude_toy_project.git)
+- **원격 저장소**: [https://github.com/Wonjun-ub/claude_account_book.git](https://github.com/Wonjun-ub/claude_account_book.git)
 
 ## 기술 스택
 
