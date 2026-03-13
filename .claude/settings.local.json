@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet new:*)",
+      "Bash(dotnet add:*)",
+      "Bash(dotnet build:*)",
+      "Bash(find /c/Users/wonjun/.nuget/packages/anthropic.sdk/5.10.0 -name *.xml)",
+      "Bash(dotnet --version && node --version && npm --version)",
+      "Bash(dotnet sln:*)",
+      "Bash(ls /c/Project/claude/backend/BudgetTracker.Api/appsettings*.json)",
+      "Bash(dotnet ef:*)",
+      "Bash(dotnet tool:*)",
+      "Bash(npm create:*)",
+      "Bash(cd /c/Project/claude/frontend && npm install 2>&1 | tail -5)",
+      "Bash(npm install:*)",
+      "Bash(cat > /c/Project/claude/frontend/.env.example << 'EOF'\n# 백엔드 API URL\nVITE_API_URL=http://localhost:5000\nEOF)",
+      "Bash(npm run:*)",
+      "Bash(nvm list:*)",
+      "Bash(npm uninstall:*)"
+    ]
+  }
+}
