@@ -122,6 +122,7 @@ public class RecurringTransactionsController : ControllerBase
     /// 특정 월의 반복 지출을 자동 반영합니다 (on-demand 방식).
     /// 월별 요약 API에서 내부적으로 호출됩니다.
     /// </summary>
+    [NonAction]
     public async Task ApplyRecurringTransactionsAsync(int year, int month)
     {
         var settings = await _db.UserSettings.FirstOrDefaultAsync();
