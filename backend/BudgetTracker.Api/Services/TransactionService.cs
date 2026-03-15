@@ -98,7 +98,8 @@ public class TransactionService : ITransactionService
             Type = request.Type,
             CategoryId = request.CategoryId,
             PaymentMethodId = request.PaymentMethodId,
-            IsIncludedInTotal = request.IsIncludedInTotal
+            IsIncludedInTotal = request.IsIncludedInTotal,
+            RecurringTransactionId = request.RecurringTransactionId,
         };
 
         // DB 저장 (탐색 속성 로드 포함)

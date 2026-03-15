@@ -177,8 +177,8 @@ async function save() {
         isIncludedInTotal: form.value.isIncludedInTotal,
       })
     } else if (isRecurring.value) {
-      // 반복 신규 등록: recurring 원부 생성 + 거래 1건 등록
-      await recurringApi.create({
+      // 반복 신규 등록: recurring 원부 생성 + 거래 1건 등록 (원부 ID 연결)
+      const recurringMaster = await recurringApi.create({
         amount,
         categoryId: activeCategoryId.value,
         paymentMethodId: form.value.type === 'Expense' ? form.value.paymentMethodId : 1,
@@ -195,6 +195,7 @@ async function save() {
         categoryId: activeCategoryId.value,
         paymentMethodId: form.value.type === 'Expense' ? form.value.paymentMethodId : 1,
         isIncludedInTotal: form.value.isIncludedInTotal,
+        recurringTransactionId: recurringMaster.id,
       })
     } else {
       // 일반 신규 등록

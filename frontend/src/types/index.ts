@@ -119,6 +119,7 @@ export interface CreateTransactionRequest {
   categoryId: number
   paymentMethodId: number
   isIncludedInTotal: boolean
+  recurringTransactionId?: number
 }
 
 export interface CreateCategoryRequest {
