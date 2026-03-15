@@ -32,17 +32,21 @@ type: project
 **남아있는 버그 (Sprint 3에서 수정 예정):**
 - 거래 목록 API가 monthStartDay 무시 → 요약 API와 날짜 범위 불일치
 
-## Sprint 3 (현재 진행 중)
-- 상태: 🔄 진행 중 (2026-03-15 시작)
+## Sprint 3
+- 상태: ✅ 완료 (2026-03-15)
 - 유형: 버그 수정 + 목업
 - 브랜치: `sprint3`
 - 목표: monthStartDay 버그 수정 + 거래 유형 3분류 탭 UI (할부 탭은 mock)
 - 계획 문서: `docs/sprint/sprint3.md`
 - DB 스키마 변경: 없음
+- PR: https://github.com/Wonjun-ub/claude_account_book/pull/1 (sprint3 → develop)
 
-**구현 범위:**
-- T20: 거래 목록 API monthStartDay 버그 수정 (백엔드 1파일)
-- T21: 거래 입력 모달 일반/반복/할부 탭 UI (할부 탭은 mock — installment.mock.ts)
+**달성 사항:**
+- T20: TransactionService.GetAllAsync()에 ISettingsRepository 주입. year/month 파라미터 사용 시 DateRangeHelper.GetMonthRange()로 변환, from/to 직접 지정 시 기존 동작 유지
+- T21: TransactionModal.vue 전면 개편 — 일반/반복/할부 3탭 UI. 수정 모드 read-only. 할부 목업(installment.mock.ts) 분리
+
+**주의사항:**
+- 수동 검증 미완료: Docker 미실행으로 dotnet test, API curl, Playwright 미수행. deploy.md 참조
 
 ## Sprint 4
 - 상태: ⬜ 예정 (Sprint 3 완료 후)

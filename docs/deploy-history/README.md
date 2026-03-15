@@ -11,4 +11,4 @@ sprint-close, hotfix-close, deploy-prod agent가 완료된 기록을 이 디렉�
 
 | 파일 | 포함 기록 |
 |------|---------|
-| (아직 없음) | — |
+| [2026-03-15.md](2026-03-15.md) | Sprint 3 (버그 수정 + 목업), Sprint 1 (백엔드 핵심 API) |
