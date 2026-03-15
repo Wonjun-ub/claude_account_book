@@ -95,21 +95,19 @@ hotfix/*  →  PR to main  →  서버 자동 배포  →  main을 develop에 �
 
 | 검증 항목 | Sprint | Hotfix | deploy-prod | 자동/수동 |
 |-----------|--------|--------|-------------|----------|
-| `pytest -v` (백엔드 통합 테스트) | ✅ | ✅ | — | **자동** |
-| API curl/httpx 검증 | ✅ 전체 | ✅ 변경분만 | — | **자동** |
-| 데모 모드 API 검증 | ✅ | — | — | **자동** |
+| `dotnet test` (백엔드 단위 테스트) | ✅ | ✅ | — | **자동** |
+| API curl 검증 | ✅ 전체 | ✅ 변경분만 | — | **자동** |
 | Playwright UI 검증 | ✅ 전체 | ✅ 변경분만 | ✅ 접속만 | **자동** |
-| SSH 헬스체크 (`/api/v1/health`) | — | — | ✅ | **자동** |
-| Docker 컨테이너 상태 확인 | — | — | ✅ | **자동** |
+| Render 헬스체크 (`/api/health`) | — | — | ✅ | **자동** |
 | 백엔드 로그 오류 확인 | — | — | ✅ | **자동** |
-| `docker compose up --build` | ⬜ | ⬜ | — | **수동** |
-| `alembic upgrade head` | ⬜ DB변경시 | — | ⬜ DB변경시 | **수동** |
+| `docker compose up --build` (스테이징) | ⬜ | ⬜ | — | **수동** |
+| `dotnet ef database update` | ⬜ DB변경시 | — | ⬜ DB변경시 | **수동** |
 | UI 디자인/시각적 품질 판단 | ⬜ | — | ⬜ | **수동** |
 
 ### 자동 검증 전제 조건
 
-- Docker 컨테이너가 실행 중일 때만 자동 실행
-- 서버가 응답하는지 확인 후 진행 (`http://localhost:3000`, `http://localhost:8000`)
+- Docker 컨테이너가 실행 중일 때만 자동 실행 (스테이징 검증 시)
+- 서버가 응답하는지 확인 후 진행 (`http://localhost:5173`, `http://localhost:5244`)
 - Docker가 미실행인 경우: 자동 검증을 건너뛰고, deploy.md에 "⬜ Docker 미실행으로 자동 검증 미수행" 기록 후 수동 검증 항목으로 안내
 
 ### 검증 결과 기록
@@ -177,14 +175,15 @@ sudo docker compose -f docker-compose.prod.yml up -d
 #### B. DB 포함 롤백 (주의: 데이터 손실 가능)
 
 ```bash
-# 롤백 전 반드시 DB 백업
-ssh -i {SSH_KEY_PATH} {USER}@{SERVER_IP} \
-  "cd {APP_PATH} && sudo docker compose -f docker-compose.prod.yml exec postgres pg_dump -U {DB_USER} {DB_NAME} > /tmp/backup_$(date +%Y%m%d).sql"
+# 롤백 전 반드시 Supabase 대시보드에서 백업 스냅샷 생성
 
-# Alembic 다운그레이드
-ssh -i {SSH_KEY_PATH} {USER}@{SERVER_IP} \
-  "cd {APP_PATH} && sudo docker compose -f docker-compose.prod.yml exec backend alembic downgrade -1"
+# EF Core 이전 마이그레이션으로 다운그레이드 (로컬에서 실행)
+cd backend/BudgetTracker.Api
+dotnet ef database update <이전_마이그레이션_이름>
+# 마이그레이션 목록 확인: dotnet ef migrations list
 ```
+
+> ⚠️ Supabase 무료 플랜은 자동 백업을 제공하지 않습니다. DB 스키마 변경 전 수동 백업을 권장합니다.
 
 #### C. 긴급 서비스 중단
 
@@ -212,20 +211,20 @@ sprint-close agent의 4단계 및 hotfix-close agent의 3단계에서 이 체크
 
 ### 성능
 
-- [ ] N+1 쿼리 없음 (SQLAlchemy relationship 로딩 전략 확인)
-- [ ] 불필요한 API 호출 없음
+- [ ] N+1 쿼리 없음 (EF Core `.Include()` 로딩 전략 확인)
+- [ ] 불필요한 API 호출 없음 (`docs/frontend-data-rule.md` 규칙 준수)
 - [ ] 리스트 응답에 페이지네이션 적용
 
 ### 코드 품질
 
 - [ ] TypeScript 타입 안전성 (any 사용 최소화)
-- [ ] 에러 핸들링 (FastAPI HTTPException, 프론트엔드 에러 바운더리)
-- [ ] 구조화 로깅 (JSON 형식, Request ID 포함)
+- [ ] 에러 핸들링 (.NET 서비스 튜플 패턴, Vue3 try/catch)
+- [ ] 백엔드 계층 역할 준수 (`docs/backend-architecture.md` 참조)
 
 ### 테스트
 
-- [ ] 새 기능에 pytest 테스트 추가 여부
-- [ ] 기존 테스트 회귀 없음 (`pytest -v` 통과)
+- [ ] 새 기능에 `dotnet test` 테스트 추가 여부
+- [ ] 기존 테스트 회귀 없음 (`dotnet test` 통과)
 
 ### 패턴 준수
 

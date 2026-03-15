@@ -214,13 +214,13 @@ try {
 
 ```typescript
 const categoryChips = computed(() => {
-  const seen = new Set<string>()
-  const result: { name: string; type: string }[] = []
+  const seen = new Set<number>()
+  const result: { id: number; name: string; type: string }[] = []
 
   for (const tx of transactions.value) {
-    if (!seen.has(tx.categoryName)) {
-      seen.add(tx.categoryName)
-      result.push({ name: tx.categoryName, type: tx.type })
+    if (!seen.has(tx.categoryId)) {
+      seen.add(tx.categoryId)
+      result.push({ id: tx.categoryId, name: getCategoryName(tx.categoryId, tx.categoryName), type: tx.type })
     }
   }
 
