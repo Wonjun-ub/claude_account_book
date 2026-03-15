@@ -8,7 +8,9 @@ const store = useAppStore()
 const route = useRoute()
 
 onMounted(() => {
-  store.loadMasterData()
+  if (route.path !== '/mock-up') {
+    store.loadMasterData()
+  }
 })
 </script>
 
@@ -20,8 +22,8 @@ onMounted(() => {
       <RouterView />
     </main>
 
-    <!-- 하단 탭바 (고정) -->
-    <nav class="flex-shrink-0 bg-white border-t border-gray-200 flex z-50">
+    <!-- 하단 탭바 — /mock-up에서는 MockupView 내부 탭 사용 -->
+    <nav v-if="route.path !== '/mock-up'" class="flex-shrink-0 bg-white border-t border-gray-200 flex z-50">
       <RouterLink
         to="/"
         class="flex-1 flex flex-col items-center py-2 text-xs gap-1"

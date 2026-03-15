@@ -3,7 +3,7 @@
 ## 프로젝트 개요
 - **목표**: 개인 수입/지출 관리 웹앱 MVP
 - **기술 스택**: CLAUDE.md 참조
-- **PRD**: `docs/PRD.md` (v1.1, 2026-03-15 기준)
+- **PRD**: `docs/PRD.md` (v1.2, 2026-03-15 기준)
 
 ---
 
@@ -48,9 +48,14 @@
 
 ### 5. 거래 유형 3분류
 - **일반 (One-time)**: 단건 거래
-- **반복 (Fixed Recurring)**: 매달 같은 날 같은 금액 자동 반영
+- **반복 (Fixed Recurring)**: 매달 같은 날 같은 금액 자동 반영 (수입/지출 공통)
+  - 부가 정보 섹션 내 토글, 매월 반복 일자(dayOfMonth) + 종료일(endDate) 입력
+  - 실서비스: .NET BackgroundService 매일 자정 실행 → DayOfMonth 도래 시 Transaction 자동 생성
+  - 삭제 옵션: 전체 삭제 / 이후 삭제 / 단건 삭제(이번 달만, 반복 유지) 3가지 bottom sheet
+  - 반복 예정 배너: 이번 달 미등록 반복 항목을 검색바·카테고리 칩 사이에 요약 표시
 - **할부 (Installment)**: 총금액+개월수 입력, 카드사 방식 자동 계산 (Sprint 5에서 전면 개편)
-- 모달에서 3가지 유형 탭으로 명확히 선택 (Sprint 3에서 UI 개편, Sprint 4에서 목업 완성)
+  - 금액 입력 필드 우측 인라인 토글로 선택 (지출 전용), Sprint 4 목업에서 UI/UX 확정
+  - 삭제 옵션: 전체 삭제 / 이후 삭제 / 단건 삭제 3가지 bottom sheet
 
 ### 6. 통계 화면
 - 카테고리별 원형 그래프 (파이차트)
@@ -99,7 +104,7 @@
 | T4 | 카테고리 API | ✅ | GET/POST/PUT/DELETE /api/categories |
 | T5 | 결제수단 API | ✅ | GET/POST/PUT/DELETE /api/payment-methods |
 | T6 | 포인트 예산 API | ✅ | GET/POST /api/point-budgets + 잔액 차감 처리 |
-| T7 | 반복 지출 API | ✅ | GET/POST /api/recurring-transactions + 자동 반영 로직 |
+| T7 | 반복 지출 API | ✅ | GET/POST /api/recurring-transactions + 자동 반영 로직 (BackgroundService 일일 스케줄로 DayOfMonth 도래 시 Transaction 자동 생성) |
 | T8 | 월별 요약 API | ✅ | GET /api/summary/monthly (커스텀 시작일 기준) |
 | T9 | 통계 API | ✅ | GET /api/summary/category, /api/summary/trend |
 | T10 | 검색/필터 API | ✅ | GET /api/transactions?category=&paymentMethod=&from=&to=&keyword= |
@@ -140,25 +145,26 @@
 
 ---
 
-## Phase 4 — Sprint 4: 할부 + 카드 결제 현황 목업 ⬜ 예정
+## Phase 4 — Sprint 4: 할부 + 카드 결제 현황 목업 🔄 진행 중
 
 **유형**: 목업
-**목표**: 할부 상세 팝업 + 카드 결제 현황 탭 전체 UI/UX 검증 (모두 mock 데이터)
+**목표**: 할부 CRUD + 카드 결제 현황 탭 전체 UI/UX 검증 (모두 mock 데이터)
 **브랜치**: `sprint4`
 **DB 스키마 변경**: 없음 (프론트엔드 전용)
 **선행 조건**: Sprint 3 완료
 
 | ID | 태스크 | 상태 | 유형 | 설명 |
 |----|--------|------|------|------|
-| T22-mock | 할부 거래 상세 팝업 목업 | ⬜ | 목업 | InstallmentDetailModal — mock 데이터 기반 |
-| T23-mock | 할부 등록 모달 목업 완성 | ⬜ | 목업 | 할부 탭 mock 저장 → 전체 흐름 시뮬레이션 |
+| T22-mock | 할부 등록 목업 | ✅ | 목업 | 인라인 할부 토글 + 개월수 입력 + 미리보기 + mock 저장 |
+| T23-mock | 할부 수정/삭제 목업 | ✅ | 목업 | 클릭→수정 모달(할부 UI), X→3가지 삭제 옵션 bottom sheet |
+| T25-mock | 반복 거래 등록/삭제/예정 배너 목업 | ✅ | 목업 | 부가 정보 토글, 예정 배너, 3가지 삭제 옵션 bottom sheet |
 | T24-mock | 카드 결제 현황 탭 목업 | ⬜ | 목업 | CardBillingView + 2슬롯 + 드릴다운 (mock 데이터) |
-| T25-mock | 카드 청구 설정 UI 목업 | ⬜ | 목업 | 설정 화면 정산일/결제일 입력 폼 (mock 저장) |
+
+> 통계/설정 화면 목업은 가계부(홈) 화면 완성 후 별도 스프린트에서 처리
 
 **Sprint 4 완료 후 확정 항목**
-- 할부 상세 팝업 표시 항목 최종 확정
 - 카드 결제 현황 탭 레이아웃 및 드릴다운 방식 확정 (슬라이드업 vs 별도 화면)
-- 하단 탭바 5번째 탭 레이아웃 방식 확정
+- 하단 탭바 4번째 탭 레이아웃 방식 확정
 
 ---
 
@@ -239,16 +245,21 @@
 | TotalAmount | decimal | 총액 |
 | RemainingAmount | decimal | 잔액 |
 
-### RecurringTransaction (반복 지출 — Fixed 전용)
+### RecurringTransaction (반복 원부 — Fixed 전용)
 | 필드 | 타입 | 설명 |
 |------|------|------|
 | Id | int | PK |
 | Amount | decimal | 금액 |
+| Type | enum | Income / Expense |
 | CategoryId | int (FK) | 카테고리 |
-| PaymentMethodId | int (FK) | 결제수단 |
-| Type | enum | Fixed (Installment는 Sprint 5에서 분리) |
-| DayOfMonth | int | 매월 반복 일자 |
+| PaymentMethodId | int (FK) | 결제수단 (수입은 null) |
+| DayOfMonth | int | 매월 반복 일자 (1~28) |
+| StartDate | DateTime | 반복 시작일 |
+| EndDate | DateTime? | 반복 종료일 (null = 무기한) |
+| IsActive | bool | 활성 여부 |
 | Memo | string? | 메모 |
+
+> **자동 반영 메커니즘**: .NET `BackgroundService`가 매일 자정 실행 → `DayOfMonth == 오늘 일자`인 활성 원부 조회 → 해당 월에 Transaction 미생성 시 INSERT → `EndDate` 초과 시 `IsActive = false` 처리
 
 ### InstallmentTransaction (할부 원부 — Sprint 5에서 신규 추가)
 | 필드 | 타입 | 설명 |
@@ -326,6 +337,6 @@
 | Sprint 1 | 구현 | ✅ 완료 | 백엔드 핵심 API (T1~T10) | 2026-03-13 |
 | Sprint 2 | 구현 | ✅ 완료 | 프론트엔드 UI 전체 구현 (T11~T19) | 2026-03-15 |
 | Sprint 3 | 버그 수정 + 목업 | ✅ 완료 | monthStartDay 버그 수정 + 거래 유형 탭 UI 목업 (T20~T21) | 2026-03-15 |
-| Sprint 4 | 목업 | ⬜ 예정 | 할부 + 카드 결제 현황 목업 (T22-mock~T25-mock) | — |
+| Sprint 4 | 목업 | 🔄 진행 중 | 할부 + 반복 거래 CRUD 목업 완료, 카드 결제 현황 목업 진행 중 (T22~T25-mock) | — |
 | Sprint 5 | 구현 | ⬜ 예정 | 할부 기능 실제 구현 (T30~T33) | — |
 | Sprint 6 | 구현 | ⬜ 예정 | 카드 결제 현황 실제 구현 (T34~T37) | — |
