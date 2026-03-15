@@ -7,21 +7,23 @@
 
 ## 현재 미완료 항목
 
-### Sprint 3 — 버그 수정 & 거래 유형 탭 UI 목업 (2026-03-15)
+### Sprint 4 — 할부·반복 거래 목업 + Vitest 테스트 환경 (2026-03-15)
 
 #### 자동 검증
 
-- ⬜ 백엔드 서버 미실행으로 자동 검증 미수행 (dotnet test, API curl, Playwright 건너뜀)
+- ✅ `npm test` — 54 케이스 전체 통과
+- ✅ `npm run build` — TypeScript 타입 오류 0건
+- ⬜ 백엔드 미실행 — dotnet test, API curl, Playwright 건너뜀
 
 #### 수동 검증 필요 항목
 
+- ⬜ 로컬 `/mock-up` 접속 후 UI 직접 확인
+  - 할부 등록: 지출 탭 할부 토글 ON → 개월수 입력 → 미리보기 → 저장 → 목록 배지 표시
+  - 할부 수정: 할부 거래 클릭 → 수정 모달 (할부 UI로 열림) 확인
+  - 할부 삭제: X 버튼 → 3가지 옵션 bottom sheet (전체/이후/단건) 동작 확인
+  - 반복 등록: 부가 정보 토글 ON → dayOfMonth/endDate 입력 → 저장 → 예정 배너 표시 확인
+  - 반복 삭제: X 버튼 → 3가지 옵션 동작 확인 + 단건 삭제 후 배너 재등장 방지 확인
 - ⬜ `docker compose up --build` — 로컬 Docker 환경에서 전체 스택 실행 확인
-- ⬜ T20 검증: `monthStartDay=25` 설정 후 `GET /api/transactions?year=2026&month=3` 조회 시 2월 25일~28일 거래 포함 확인
-- ⬜ T20 검증: 요약 API 집계 금액과 거래 목록 합계 일치 확인
-- ⬜ T21 검증: 거래 추가 모달 일반/반복/할부 탭 전환 동작 확인
-- ⬜ T21 검증: 반복(Fixed) 탭으로 거래 등록 후 `GET /api/recurring-transactions` 목록 확인
-- ⬜ T21 검증: 기존 거래 수정 시 유형 탭 read-only 표시 및 수정 정상 동작 확인
-- ⬜ T21 검증: 할부 탭 → 총 개월수 입력 → 미리보기 표시 → 저장 시 "준비 중" 안내 확인
 - ⬜ UI 디자인/시각적 품질 확인
 
 ---

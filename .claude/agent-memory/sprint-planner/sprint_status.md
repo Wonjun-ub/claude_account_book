@@ -49,23 +49,28 @@ type: project
 - 수동 검증 미완료: Docker 미실행으로 dotnet test, API curl, Playwright 미수행. deploy.md 참조
 
 ## Sprint 4
-- 상태: ⬜ 예정 (Sprint 3 완료 후)
+- 상태: ✅ 완료 (2026-03-15)
 - 유형: 목업
 - 브랜치: `sprint4`
-- 목표: 할부 + 카드 결제 현황 목업 (두 기능을 한 스프린트에서 동시 검증)
+- 목표: 할부 CRUD 목업 + 반복 거래 CRUD 목업 + Vitest 테스트 환경 구축
 - 계획 문서: `docs/sprint/sprint4.md`
 - DB 스키마 변경: 없음 (프론트엔드 전용)
+- PR: sprint4 → develop (https://github.com/Wonjun-ub/claude_account_book/compare/develop...sprint4)
 
-**구현 범위:**
-- T22-mock: 할부 거래 상세 팝업 목업 (InstallmentDetailModal)
-- T23-mock: 할부 등록 모달 mock 저장 완성
-- T24-mock: 카드 결제 현황 탭 목업 (CardBillingView + 2슬롯 + 드릴다운)
-- T25-mock: 설정 화면 카드 청구 설정 UI 목업
+**달성 사항:**
+- T22-mock: 할부 등록 목업 — 인라인 토글, 월별 미리보기, 회차별 거래 자동 생성
+- T23-mock: 할부 수정/삭제 목업 — 3가지 삭제 옵션 bottom sheet
+- T25-mock: 반복 거래 목업 — dayOfMonth/endDate, 예정 배너, skip 키 영속, 3가지 삭제 옵션
+- Vitest 테스트 환경: 54 케이스 전체 통과 (monthPeriod, installment, mockupLogic)
+- monthPeriod 유틸 분리 (utils/), FAB 위치 수정, 월 시작일 25일 적용
 
-**Sprint 4 완료 후 확정 필요 항목:**
-- 할부 상세 팝업 표시 항목
-- 카드 결제 현황 탭 드릴다운 방식 (슬라이드업 vs 별도 화면)
-- 하단 탭바 5번째 탭 레이아웃
+**미완료 (이월):**
+- T24-mock: 카드 결제 현황 탭 목업 → Sprint 6 계획 시 포함 여부 결정
+
+**주의사항:**
+- MockupView.vue가 977줄로 대형 단일 파일. 기능 이관 후 자연 해소 예정
+- localStorage JSON.parse try/catch 없음 — DEV-only이므로 실서비스 영향 없음
+- 수동 검증 미완료: /mock-up UI 직접 확인, docker compose 검증 필요
 
 ## Sprint 5
 - 상태: ⬜ 예정 (Sprint 4 완료 + 할부 요구사항 확정 후)
