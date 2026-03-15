@@ -142,6 +142,7 @@ public class TransactionsController : ControllerBase
             paymentMethod.PointBudget.RemainingAmount -= request.Amount;
         }
 
+        // 엔티티 생성
         var transaction = new Transaction
         {
             Amount = request.Amount,
@@ -153,6 +154,7 @@ public class TransactionsController : ControllerBase
             IsIncludedInTotal = request.IsIncludedInTotal
         };
 
+        // DB 저장
         _db.Transactions.Add(transaction);
         await _db.SaveChangesAsync();
 
@@ -167,6 +169,7 @@ public class TransactionsController : ControllerBase
     [HttpPut("{id}")]
     public async Task<ActionResult<TransactionResponse>> Update(int id, [FromBody] UpdateTransactionRequest request)
     {
+        // 거래 존재 확인
         var transaction = await _db.Transactions
             .Include(t => t.PaymentMethod)
                 .ThenInclude(p => p.PointBudget)
@@ -205,6 +208,7 @@ public class TransactionsController : ControllerBase
             newPaymentMethod.PointBudget.RemainingAmount -= request.Amount;
         }
 
+        // 엔티티 필드 업데이트
         transaction.Amount = request.Amount;
         transaction.Date = request.Date.ToUniversalTime();
         transaction.Memo = request.Memo;
@@ -213,6 +217,7 @@ public class TransactionsController : ControllerBase
         transaction.PaymentMethodId = request.PaymentMethodId;
         transaction.IsIncludedInTotal = request.IsIncludedInTotal;
 
+        // DB 저장
         await _db.SaveChangesAsync();
 
         // 최신 탐색 속성 재로드
@@ -226,6 +231,7 @@ public class TransactionsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
+        // 거래 존재 확인
         var transaction = await _db.Transactions
             .Include(t => t.PaymentMethod)
                 .ThenInclude(p => p.PointBudget)
@@ -241,6 +247,7 @@ public class TransactionsController : ControllerBase
             transaction.PaymentMethod.PointBudget.RemainingAmount += transaction.Amount;
         }
 
+        // DB 삭제
         _db.Transactions.Remove(transaction);
         await _db.SaveChangesAsync();
 

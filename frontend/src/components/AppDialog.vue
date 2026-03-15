@@ -6,7 +6,7 @@ const { visible, message, isConfirm, handleOk, handleCancel } = useDialog()
 
 <template>
   <Teleport to="body">
-    <div v-if="visible" class="fixed inset-0 z-50 flex items-center justify-center px-6">
+    <div v-if="visible" class="fixed inset-0 z-[60] flex items-center justify-center px-6">
       <!-- 배경 오버레이 -->
       <div class="absolute inset-0 bg-black/40" @click="isConfirm ? handleCancel() : handleOk()" />
 

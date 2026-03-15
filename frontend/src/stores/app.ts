@@ -40,6 +40,7 @@ export const useAppStore = defineStore('app', () => {
 
   async function loadMasterData() {
     loading.value = true
+
     try {
       const [cats, methods, points, s] = await Promise.all([
         categoriesApi.getAll(),
@@ -47,6 +48,7 @@ export const useAppStore = defineStore('app', () => {
         pointBudgetsApi.getAll(),
         settingsApi.get(),
       ])
+
       categories.value = cats
       paymentMethods.value = methods
       pointBudgets.value = points

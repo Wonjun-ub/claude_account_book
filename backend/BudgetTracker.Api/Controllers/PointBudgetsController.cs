@@ -57,7 +57,7 @@ public class PointBudgetsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<PointBudgetResponse>> Create([FromBody] CreatePointBudgetRequest request)
     {
-        // 생성 시 RemainingAmount = TotalAmount로 초기화
+        // 엔티티 생성 (RemainingAmount = TotalAmount로 초기화)
         var budget = new PointBudget
         {
             Name = request.Name,
@@ -65,9 +65,11 @@ public class PointBudgetsController : ControllerBase
             RemainingAmount = request.TotalAmount
         };
 
+        // DB 저장
         _db.PointBudgets.Add(budget);
         await _db.SaveChangesAsync();
 
+        // 응답 반환
         var response = new PointBudgetResponse
         {
             Id = budget.Id,

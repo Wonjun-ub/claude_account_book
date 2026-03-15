@@ -11,6 +11,7 @@ export function useDialog() {
     message.value = msg
     isConfirm.value = true
     visible.value = true
+
     return new Promise(resolve => {
       resolveCallback = resolve
     })
@@ -20,6 +21,7 @@ export function useDialog() {
     message.value = msg
     isConfirm.value = false
     visible.value = true
+
     return new Promise(resolve => {
       resolveCallback = () => resolve()
     })
@@ -27,11 +29,13 @@ export function useDialog() {
 
   function handleOk() {
     visible.value = false
+
     resolveCallback(true)
   }
 
   function handleCancel() {
     visible.value = false
+
     resolveCallback(false)
   }
 

@@ -14,6 +14,7 @@ public static class DateRangeHelper
         {
             var start = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
             var end = new DateTime(year, month, DateTime.DaysInMonth(year, month), 23, 59, 59, DateTimeKind.Utc);
+
             return (start, end);
         }
 
@@ -40,6 +41,7 @@ public static class DateRangeHelper
     {
         int daysInMonth = DateTime.DaysInMonth(year, month);
         int actualDay = Math.Min(dayOfMonth, daysInMonth);
+
         return new DateTime(year, month, actualDay, 0, 0, 0, DateTimeKind.Utc);
     }
 }

@@ -67,6 +67,7 @@ public class RecurringTransactionsController : ControllerBase
         if (request.Type == RecurringType.Installment && (!request.TotalInstallments.HasValue || request.TotalInstallments.Value <= 0))
             return BadRequest(new { message = "할부 타입은 총 할부 횟수(TotalInstallments)가 필요합니다." });
 
+        // 엔티티 생성
         var recurring = new RecurringTransaction
         {
             Amount = request.Amount,
@@ -80,9 +81,11 @@ public class RecurringTransactionsController : ControllerBase
             IsActive = true
         };
 
+        // DB 저장
         _db.RecurringTransactions.Add(recurring);
         await _db.SaveChangesAsync();
 
+        // 탐색 속성 로드
         await _db.Entry(recurring).Reference(r => r.Category).LoadAsync();
         await _db.Entry(recurring).Reference(r => r.PaymentMethod).LoadAsync();
 
@@ -107,6 +110,7 @@ public class RecurringTransactionsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
+        // 반복 지출 존재 확인
         var recurring = await _db.RecurringTransactions.FindAsync(id);
         if (recurring is null)
             return NotFound(new { message = "반복 지출을 찾을 수 없습니다." });
@@ -155,7 +159,7 @@ public class RecurringTransactionsController : ControllerBase
             if (alreadyCreated)
                 continue;
 
-            // 포인트 잔액 확인
+            // 포인트 잔액 확인 및 차감
             if (recurring.PaymentMethod.Type == PaymentMethodType.Point
                 && recurring.PaymentMethod.PointBudget is not null)
             {
@@ -165,7 +169,7 @@ public class RecurringTransactionsController : ControllerBase
                 recurring.PaymentMethod.PointBudget.RemainingAmount -= recurring.Amount;
             }
 
-            // 새 거래 생성
+            // 새 거래 생성 및 추가
             var transaction = new Transaction
             {
                 Amount = recurring.Amount,

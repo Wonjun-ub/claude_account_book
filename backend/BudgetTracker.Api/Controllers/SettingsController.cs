@@ -36,11 +36,15 @@ public class SettingsController : ControllerBase
     [HttpPut]
     public async Task<ActionResult<UserSettingsResponse>> Update([FromBody] UpdateUserSettingsRequest request)
     {
+        // 설정 존재 확인
         var settings = await _db.UserSettings.FirstOrDefaultAsync();
         if (settings is null)
             return NotFound(new { message = "사용자 설정이 없습니다." });
 
+        // 비즈니스 로직: 필드 업데이트
         settings.MonthStartDay = request.MonthStartDay;
+
+        // DB 저장
         await _db.SaveChangesAsync();
 
         return Ok(new UserSettingsResponse

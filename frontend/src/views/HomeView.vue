@@ -15,12 +15,15 @@ const summary = ref<MonthlySummary | null>(null)
 const loadingTx = ref(false)
 const showModal = ref(false)
 const editTarget = ref<Transaction | null>(null)
+const initialType = ref<'Income' | 'Expense'>('Expense')
 const keyword = ref('')
 const selectedCategory = ref<string | null>(null)
+const fabOpen = ref(false)
 
 async function loadData() {
   loadingTx.value = true
   selectedCategory.value = null
+
   try {
     const params: Record<string, string | number> = {
       year: store.currentYear,
@@ -32,6 +35,7 @@ async function loadData() {
       transactionsApi.getAll(params),
       summaryApi.getMonthly(store.currentYear, store.currentMonth),
     ])
+
     transactions.value = txList
     summary.value = sum
   } finally {
@@ -43,12 +47,14 @@ async function loadData() {
 const categoryChips = computed(() => {
   const seen = new Set<string>()
   const result: { name: string; type: string }[] = []
+
   for (const tx of transactions.value) {
     if (!seen.has(tx.categoryName)) {
       seen.add(tx.categoryName)
       result.push({ name: tx.categoryName, type: tx.type })
     }
   }
+
   return result
 })
 
@@ -61,8 +67,11 @@ const filteredTransactions = computed(() => {
 watch([() => store.currentYear, () => store.currentMonth], loadData)
 onMounted(loadData)
 
-function openAdd() {
+function openAdd(type: 'Income' | 'Expense') {
   editTarget.value = null
+  initialType.value = type
+  fabOpen.value = false
+
   showModal.value = true
 }
 
@@ -73,6 +82,7 @@ function openEdit(tx: Transaction) {
 
 async function handleDelete(id: number) {
   if (!await showConfirm('거래를 삭제하시겠습니까?')) return
+
   await transactionsApi.delete(id)
   await loadData()
 }
@@ -88,11 +98,13 @@ function formatDate(dateStr: string) {
 
 function groupByDate(txs: Transaction[]) {
   const map = new Map<string, Transaction[]>()
+
   for (const tx of txs) {
     const key = dayjs(tx.date).format('YYYY-MM-DD')
     if (!map.has(key)) map.set(key, [])
     map.get(key)!.push(tx)
   }
+
   return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]))
 }
 </script>
@@ -224,18 +236,53 @@ function groupByDate(txs: Transaction[]) {
       </template>
     </div>
 
-    <!-- ── 거래 추가 버튼 (고정) ── -->
-    <button
-      @click="openAdd"
-      class="fixed bottom-20 right-4 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center text-2xl hover:bg-blue-700 z-40"
-    >
-      +
-    </button>
+    <!-- ── FAB 스피드 다이얼 ── -->
+    <div class="fixed bottom-20 right-4 flex flex-col items-end gap-3 z-40">
+      <!-- 수입/지출 버튼 (펼쳐졌을 때) -->
+      <Transition
+        enter-active-class="transition-all duration-200"
+        enter-from-class="opacity-0 translate-y-2"
+        enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="transition-all duration-150"
+        leave-from-class="opacity-100 translate-y-0"
+        leave-to-class="opacity-0 translate-y-2"
+      >
+        <div v-if="fabOpen" class="flex flex-col items-end gap-2">
+          <button
+            @click="openAdd('Income')"
+            class="flex items-center gap-2 bg-white text-blue-600 border border-blue-200 shadow-md rounded-full px-4 py-2 text-sm font-semibold"
+          >
+            수입 +
+          </button>
+          <button
+            @click="openAdd('Expense')"
+            class="flex items-center gap-2 bg-white text-red-500 border border-red-200 shadow-md rounded-full px-4 py-2 text-sm font-semibold"
+          >
+            지출 +
+          </button>
+        </div>
+      </Transition>
+
+      <!-- 메인 FAB -->
+      <button
+        @click="fabOpen = !fabOpen"
+        class="w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center transition-transform duration-200"
+        :class="fabOpen ? 'rotate-45' : ''"
+      >
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- 배경 딤 (FAB 열렸을 때) -->
+    <div v-if="fabOpen" class="fixed inset-0 z-30" @click="fabOpen = false" />
 
     <!-- 거래 모달 -->
     <TransactionModal
       v-if="showModal"
       :transaction="editTarget"
+      :initialType="initialType"
       @close="showModal = false"
       @saved="() => { showModal = false; loadData() }"
     />

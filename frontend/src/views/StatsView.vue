@@ -29,11 +29,13 @@ const COLORS = [
 
 async function loadData() {
   loading.value = true
+
   try {
     const [cats, tr] = await Promise.all([
       summaryApi.getCategory(store.currentYear, store.currentMonth),
       summaryApi.getTrend(6),
     ])
+
     categorySummary.value = cats
     trend.value = tr
   } finally {
@@ -41,9 +43,13 @@ async function loadData() {
   }
 }
 
-// flush: 'post' — DOM 업데이트 완료 후 실행 보장
-watch(categorySummary, renderPie, { flush: 'post' })
-watch(trend, renderLine, { flush: 'post' })
+// loading이 false로 바뀐 후 DOM이 업데이트 완료됐을 때 차트 렌더링
+watch(loading, (val) => {
+  if (!val) {
+    renderPie()
+    renderLine()
+  }
+}, { flush: 'post' })
 
 function renderPie() {
   if (!pieCanvas.value) return
