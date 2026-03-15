@@ -115,3 +115,13 @@ export interface CreatePointBudgetRequest {
   name: string
   totalAmount: number
 }
+
+export interface CreateRecurringTransactionRequest {
+  amount: number
+  categoryId: number
+  paymentMethodId: number
+  type: RecurringType
+  dayOfMonth: number
+  totalInstallments?: number
+  memo?: string
+}

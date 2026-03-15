@@ -17,12 +17,12 @@ const showModal = ref(false)
 const editTarget = ref<Transaction | null>(null)
 const initialType = ref<'Income' | 'Expense'>('Expense')
 const keyword = ref('')
-const selectedCategory = ref<string | null>(null)
+const selectedCategory = ref<number | null>(null)
 const fabOpen = ref(false)
 
 async function loadData() {
   loadingTx.value = true
-  selectedCategory.value = null
+  selectedCategory.value = null  // 월 변경 시 필터 초기화
 
   try {
     const params: Record<string, string | number> = {
@@ -43,25 +43,31 @@ async function loadData() {
   }
 }
 
-// 현재 거래 목록에서 유니크 카테고리 추출
+// store에서 카테고리 이름 조회 (API 응답의 영문 테스트 데이터와 무관하게 항상 최신 한글 이름 사용)
+function getCategoryName(categoryId: number, fallback: string): string {
+  return store.categories.find(c => c.id === categoryId)?.name ?? fallback
+}
+
+// 현재 거래 목록에서 유니크 카테고리 추출 (ID 기준 중복 제거, store에서 최신 이름 사용)
 const categoryChips = computed(() => {
-  const seen = new Set<string>()
-  const result: { name: string; type: string }[] = []
+  const seen = new Set<number>()
+  const result: { id: number; name: string; type: string }[] = []
 
   for (const tx of transactions.value) {
-    if (!seen.has(tx.categoryName)) {
-      seen.add(tx.categoryName)
-      result.push({ name: tx.categoryName, type: tx.type })
+    if (!seen.has(tx.categoryId)) {
+      seen.add(tx.categoryId)
+      const name = getCategoryName(tx.categoryId, tx.categoryName)
+      result.push({ id: tx.categoryId, name, type: tx.type })
     }
   }
 
   return result
 })
 
-// 카테고리 필터 적용
+// 카테고리 필터 적용 (ID 기준)
 const filteredTransactions = computed(() => {
-  if (!selectedCategory.value) return transactions.value
-  return transactions.value.filter(tx => tx.categoryName === selectedCategory.value)
+  if (selectedCategory.value === null) return transactions.value
+  return transactions.value.filter(tx => tx.categoryId === selectedCategory.value)
 })
 
 watch([() => store.currentYear, () => store.currentMonth], loadData)
@@ -83,8 +89,23 @@ function openEdit(tx: Transaction) {
 async function handleDelete(id: number) {
   if (!await showConfirm('거래를 삭제하시겠습니까?')) return
 
+  const tx = transactions.value.find(t => t.id === id)
+  if (!tx) return
+
+  // 프론트에서 즉시 제거 (서버 응답 기다리지 않음)
+  transactions.value = transactions.value.filter(t => t.id !== id)
+
+  // 요약 즉시 업데이트 (합산 포함 거래만)
+  if (summary.value && tx.isIncludedInTotal) {
+    if (tx.type === 'Income') {
+      summary.value = { ...summary.value, totalIncome: summary.value.totalIncome - tx.amount, balance: summary.value.balance - tx.amount }
+    } else {
+      summary.value = { ...summary.value, totalExpense: summary.value.totalExpense - tx.amount, balance: summary.value.balance + tx.amount }
+    }
+  }
+
+  // 서버에 삭제 요청 (백그라운드)
   await transactionsApi.delete(id)
-  await loadData()
 }
 
 function formatAmount(amount: number, type: string) {
@@ -171,10 +192,10 @@ function groupByDate(txs: Transaction[]) {
         </button>
         <button
           v-for="cat in categoryChips"
-          :key="cat.name"
-          @click="selectedCategory = selectedCategory === cat.name ? null : cat.name"
+          :key="cat.id"
+          @click="selectedCategory = selectedCategory === cat.id ? null : cat.id"
           class="flex-shrink-0 text-xs px-3 py-1.5 rounded-full font-medium transition-colors"
-          :class="selectedCategory === cat.name
+          :class="selectedCategory === cat.id
             ? (cat.type === 'Income' ? 'bg-blue-600 text-white' : 'bg-red-500 text-white')
             : 'bg-gray-100 text-gray-600'"
         >
@@ -212,7 +233,7 @@ function groupByDate(txs: Transaction[]) {
           >
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2">
-                <span class="text-sm font-medium truncate">{{ tx.categoryName }}</span>
+                <span class="text-sm font-medium truncate">{{ getCategoryName(tx.categoryId, tx.categoryName) }}</span>
                 <span v-if="!tx.isIncludedInTotal" class="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">제외</span>
                 <span v-if="tx.recurringTransactionId" class="text-xs bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded">반복</span>
               </div>

@@ -148,12 +148,17 @@ public class RecurringService : IRecurringService
             }
 
             // 새 거래 생성 (Repository의 CreateAsync를 사용하지 않고 직접 처리 — 배치 저장을 위해)
+            // 카테고리 타입으로 거래 유형 결정 (Income/Expense)
+            var transactionType = recurring.Category.Type == CategoryType.Income
+                ? TransactionType.Income
+                : TransactionType.Expense;
+
             var transaction = new Transaction
             {
                 Amount = recurring.Amount,
                 Date = transactionDate,
                 Memo = recurring.Memo,
-                Type = TransactionType.Expense,
+                Type = transactionType,
                 CategoryId = recurring.CategoryId,
                 PaymentMethodId = recurring.PaymentMethodId,
                 IsIncludedInTotal = true,

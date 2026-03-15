@@ -14,10 +14,11 @@ public class RecurringRepository : IRecurringRepository
         _db = db;
     }
 
-    // 모든 활성 반복 지출 조회 (포인트 예산 포함)
+    // 모든 활성 반복 지출 조회 (카테고리, 결제수단, 포인트 예산 포함)
     public async Task<IEnumerable<RecurringTransaction>> GetAllActiveAsync()
     {
         return await _db.RecurringTransactions
+            .Include(r => r.Category)
             .Include(r => r.PaymentMethod)
                 .ThenInclude(p => p.PointBudget)
             .Where(r => r.IsActive)

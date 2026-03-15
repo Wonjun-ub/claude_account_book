@@ -5,6 +5,12 @@ import { useDialog } from '@/composables/useDialog'
 import { categoriesApi, paymentMethodsApi, pointBudgetsApi, settingsApi } from '@/api'
 import type { CategoryType, PaymentMethodType } from '@/types'
 
+const methodTypeLabel: Record<PaymentMethodType, string> = {
+  Cash: '현금',
+  Card: '카드',
+  Point: '포인트',
+}
+
 const store = useAppStore()
 const { showConfirm, showAlert } = useDialog()
 
@@ -225,7 +231,7 @@ onMounted(() => {
             <div v-for="m in store.paymentMethods" :key="m.id"
               class="flex items-center gap-1 bg-gray-100 text-gray-700 text-xs px-2.5 py-1.5 rounded-full">
               {{ m.name }}
-              <span class="text-gray-400">({{ m.type }})</span>
+              <span class="text-gray-400">({{ methodTypeLabel[m.type] }})</span>
               <button v-if="!m.isDefault" @click="deleteMethod(m.id, m.isDefault)" class="text-gray-400 hover:text-red-500">✕</button>
             </div>
             <p v-if="store.paymentMethods.length === 0" class="text-xs text-gray-400">등록된 결제수단이 없습니다</p>

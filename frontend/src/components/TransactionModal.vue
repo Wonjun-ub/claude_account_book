@@ -2,8 +2,8 @@
 import { ref, computed, watch } from 'vue'
 import dayjs from 'dayjs'
 import { useAppStore } from '@/stores/app'
-import { transactionsApi } from '@/api'
-import type { Transaction, TransactionType } from '@/types'
+import { transactionsApi, recurringApi } from '@/api'
+import type { Transaction, TransactionType, RecurringType } from '@/types'
 
 const props = defineProps<{
   transaction: Transaction | null
@@ -21,10 +21,26 @@ const form = ref({
   type: 'Expense' as TransactionType,
   amount: '',        // 표시용 (콤마 포함 문자열)
   date: dayjs().format('YYYY-MM-DD'),
-  categoryId: 0,
   paymentMethodId: 0,
   memo: '',
   isIncludedInTotal: true,
+})
+
+// 수입/지출 탭 전환 시 각 타입의 카테고리 선택값을 독립적으로 보존
+const categoryIds = ref<Record<TransactionType, number>>({ Income: 0, Expense: 0 })
+
+// 현재 탭의 카테고리 ID getter/setter (v-model에 동적 키 직접 사용 시 Vue 3 반응성 이슈 방지)
+const activeCategoryId = computed({
+  get: () => categoryIds.value[form.value.type],
+  set: (val: number) => { categoryIds.value[form.value.type] = val },
+})
+
+// 반복 설정 (신규 등록 시에만 사용)
+const recurring = ref({
+  enabled: false,
+  type: 'Fixed' as RecurringType,
+  dayOfMonth: dayjs().date(),
+  totalInstallments: undefined as number | undefined,
 })
 
 const saving = ref(false)
@@ -57,6 +73,13 @@ function onAmountInput(e: Event) {
   input.value = formatted  // DOM 실제 값도 덮어써야 초과 입력 차단
 }
 
+// 날짜 변경 시 반복 일자 동기화 (사용자가 직접 수정하기 전까지)
+watch(() => form.value.date, (date) => {
+  if (!recurring.value.enabled) {
+    recurring.value.dayOfMonth = dayjs(date).date()
+  }
+})
+
 // props.transaction 변경 시 폼 동기화
 watch(() => props.transaction, (tx) => {
   if (tx) {
@@ -64,37 +87,46 @@ watch(() => props.transaction, (tx) => {
       type: tx.type,
       amount: formatWithComma(String(tx.amount)),
       date: dayjs(tx.date).format('YYYY-MM-DD'),
-      categoryId: tx.categoryId,
       paymentMethodId: tx.paymentMethodId,
       memo: tx.memo ?? '',
       isIncludedInTotal: tx.isIncludedInTotal,
     }
+
+    categoryIds.value = { Income: 0, Expense: 0 }
+    categoryIds.value[tx.type] = tx.categoryId
   } else {
     form.value = {
       type: props.initialType ?? 'Expense',
       amount: '',
       date: dayjs().format('YYYY-MM-DD'),
-      categoryId: 0,
       paymentMethodId: 0,
       memo: '',
       isIncludedInTotal: true,
     }
+
+    categoryIds.value = { Income: 0, Expense: 0 }
+    recurring.value = {
+      enabled: false,
+      type: 'Fixed',
+      dayOfMonth: dayjs().date(),
+      totalInstallments: undefined,
+    }
   }
 }, { immediate: true })
-
-// 수입/지출 전환 시 카테고리 초기화
-watch(() => form.value.type, () => {
-  form.value.categoryId = 0
-})
 
 async function save() {
   error.value = ''
 
   const amount = rawAmount()
+  const activeCategoryId = categoryIds.value[form.value.type]
 
   if (!amount || amount <= 0) { error.value = '금액을 입력해주세요.'; return }
-  if (!form.value.categoryId) { error.value = '카테고리를 선택해주세요.'; return }
+  if (!activeCategoryId) { error.value = '카테고리를 선택해주세요.'; return }
   if (!form.value.paymentMethodId) { error.value = '결제수단을 선택해주세요.'; return }
+  if (!isEdit.value && recurring.value.enabled && recurring.value.type === 'Installment' && !recurring.value.totalInstallments) {
+    error.value = '총 할부 횟수를 입력해주세요.'
+    return
+  }
 
   saving.value = true
 
@@ -104,7 +136,7 @@ async function save() {
       date: form.value.date,
       memo: form.value.memo || undefined,
       type: form.value.type,
-      categoryId: form.value.categoryId,
+      categoryId: activeCategoryId,
       paymentMethodId: form.value.paymentMethodId,
       isIncludedInTotal: form.value.isIncludedInTotal,
     }
@@ -112,6 +144,19 @@ async function save() {
     if (isEdit.value && props.transaction) {
       await transactionsApi.update(props.transaction.id, payload)
     } else {
+      // 반복 설정이 활성화된 경우 반복 템플릿 먼저 등록
+      if (recurring.value.enabled) {
+        await recurringApi.create({
+          amount,
+          categoryId: activeCategoryId,
+          paymentMethodId: form.value.paymentMethodId,
+          type: recurring.value.type,
+          dayOfMonth: recurring.value.dayOfMonth,
+          totalInstallments: recurring.value.type === 'Installment' ? recurring.value.totalInstallments : undefined,
+          memo: form.value.memo || undefined,
+        })
+      }
+
       await transactionsApi.create(payload)
     }
 
@@ -190,7 +235,7 @@ async function save() {
           <div>
             <label class="block text-xs text-gray-500 mb-1">카테고리</label>
             <select
-              v-model="form.categoryId"
+              v-model="activeCategoryId"
               class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-blue-400"
             >
               <option :value="0">선택하세요</option>
@@ -213,6 +258,63 @@ async function save() {
               </option>
             </select>
           </div>
+        </div>
+
+        <!-- ── 반복 설정 (신규 등록 시에만 표시) ── -->
+        <div v-if="!isEdit" class="px-4 py-3 space-y-3 border-t border-gray-100">
+          <div class="flex items-center justify-between">
+            <p class="text-xs font-medium text-gray-400 uppercase tracking-wide">반복 설정</p>
+            <div
+              @click="recurring.enabled = !recurring.enabled"
+              :class="recurring.enabled ? 'bg-blue-600' : 'bg-gray-200'"
+              class="w-11 h-6 rounded-full transition-colors relative cursor-pointer"
+            >
+              <div :class="recurring.enabled ? 'translate-x-5' : 'translate-x-0.5'" class="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform" />
+            </div>
+          </div>
+
+          <template v-if="recurring.enabled">
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">반복 유형</label>
+              <div class="flex rounded-xl bg-gray-100 p-1 gap-1">
+                <button
+                  @click="recurring.type = 'Fixed'"
+                  :class="recurring.type === 'Fixed' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500'"
+                  class="flex-1 py-2 text-sm font-medium rounded-lg transition-all"
+                >고정</button>
+                <button
+                  @click="recurring.type = 'Installment'"
+                  :class="recurring.type === 'Installment' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500'"
+                  class="flex-1 py-2 text-sm font-medium rounded-lg transition-all"
+                >할부</button>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">매월 반복일</label>
+              <div class="flex items-center gap-2">
+                <input
+                  v-model.number="recurring.dayOfMonth"
+                  type="number" min="1" max="31"
+                  class="w-20 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-center focus:outline-none focus:border-blue-400"
+                />
+                <span class="text-sm text-gray-500">일</span>
+              </div>
+            </div>
+
+            <div v-if="recurring.type === 'Installment'">
+              <label class="block text-xs text-gray-500 mb-1">총 할부 횟수</label>
+              <div class="flex items-center gap-2">
+                <input
+                  v-model.number="recurring.totalInstallments"
+                  type="number" min="2"
+                  placeholder="12"
+                  class="w-20 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-center focus:outline-none focus:border-blue-400"
+                />
+                <span class="text-sm text-gray-500">회</span>
+              </div>
+            </div>
+          </template>
         </div>
 
         <!-- ── 부가 정보: 메모 · 합산 포함 ── -->

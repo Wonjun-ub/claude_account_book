@@ -5,6 +5,7 @@ import type {
   CategorySummary, MonthlyTrend,
   CreateTransactionRequest, CreateCategoryRequest,
   CreatePaymentMethodRequest, CreatePointBudgetRequest,
+  CreateRecurringTransactionRequest,
 } from '@/types'
 
 // ── 거래 ───────────────────────────────────────────────────────────────────
@@ -50,6 +51,7 @@ export const pointBudgetsApi = {
 // ── 반복 지출 ──────────────────────────────────────────────────────────────
 export const recurringApi = {
   getAll: () => apiClient.get<RecurringTransaction[]>('/api/recurring-transactions'),
+  create: (data: CreateRecurringTransactionRequest) => apiClient.post<RecurringTransaction>('/api/recurring-transactions', data),
   delete: (id: number) => apiClient.delete(`/api/recurring-transactions/${id}`),
 }
 
