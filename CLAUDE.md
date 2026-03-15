@@ -30,11 +30,13 @@
 ## Git 브랜치 전략
 
 ### Sprint 흐름 (기능 개발)
+
 ```
 sprint{n}  →  PR to develop  →  로컬 Docker 스테이징 검증  →  PR to main  →  서버 자동 배포
 ```
 
 ### Hotfix 흐름 (긴급 패치)
+
 ```
 hotfix/*  →  PR to main  →  서버 자동 배포  →  main을 develop에 역머지
 ```
@@ -54,16 +56,19 @@ hotfix/*  →  PR to main  →  서버 자동 배포  →  main을 develop에 �
 ## 개발시 유의해야할 사항
 
 - **plan 모드에서 수정사항을 받으면 반드시 Hotfix vs Sprint 의사결정을 먼저 수행합니다:**
+
   1. 수정사항의 긴급도, 변경 범위, DB 변경 여부, 의존성 추가 여부를 분석합니다.
   2. 아래 기준에 따라 Hotfix 또는 Sprint를 추천합니다.
   3. 사용자의 최종 결정을 받은 후 해당 프로세스를 따릅니다.
 
   **Hotfix 추천 기준** (모두 충족 시):
+
   - 프로덕션 장애/버그이거나, 변경 범위가 파일 3개 이하 & 코드 50줄 이하
   - DB 스키마 변경 없음
   - 새 의존성(pip/npm) 추가 없음
 
   **Sprint 추천 기준** (하나라도 해당 시):
+
   - 새 기능 추가 또는 여러 모듈에 걸친 작업
   - DB 스키마 변경 필요
   - 새 의존성 추가 필요
@@ -73,6 +78,7 @@ hotfix/*  →  PR to main  →  서버 자동 배포  →  main을 develop에 �
   - 스프린트 계획/완료 문서: `docs/sprint/sprint{n}.md`
   - 스프린트 첨부 파일 (스크린샷, 보고서 등): `docs/sprint/sprint{n}/`
 - sprint 개발이 plan 모드로 진행될 때는 다음을 꼭 준수합니다.
+
   - karpathy-guidelines skill을 준수하세요.
   - sprint 가 새로 시작될 때는 새로 branch를 sprint{n} 이름으로 생성하고 해당 브랜치에서 작업해주세요. (worktree 사용하지 말아주세요)
   - 다음과 같이 agent를 활용합니다.
@@ -83,6 +89,7 @@ hotfix/*  →  PR to main  →  서버 자동 배포  →  main을 develop에 �
     5. `develop` → `main` merge는 별도 QA 통과 후 deploy-prod agent를 사용합니다.
 
 - hotfix 개발이 plan 모드로 진행될 때는 다음을 꼭 준수합니다.
+
   - karpathy-guidelines skill을 준수하세요.
   - `main` 기반으로 `hotfix/{설명}` 브랜치를 생성합니다. (worktree 사용하지 말아주세요)
   - sprint-planner agent는 사용하지 않습니다. (계획 수립 불필요)
@@ -98,6 +105,29 @@ hotfix/*  →  PR to main  →  서버 자동 배포  →  main을 develop에 �
   - 미완료 항목: `- ⬜ 항목 내용`
   - GFM `[x]`/`[ ]` 대신 이모지를 사용하여 마크다운 미리보기에서 시각적 구분을 보장합니다.
 
+## Git 커밋 및 Push 규칙
+
+- **커밋은 작업 완료 시점에만** 수행합니다. 중간 변경사항은 커밋하지 않습니다.
+- **관련 변경사항은 하나의 커밋으로 묶습니다.** fix + docs, feat + style 등 같은 작업 단위는 분리하지 않습니다.
+- **명시적 요청 전까지 `git push` 금지.** "push해줘" / "배포해줘" 요청이 있을 때만 push합니다.
+
+## 프론트엔드 UI 규칙
+
+### 레이아웃 패턴 (모바일 앱 구조)
+
+모든 뷰는 `h-full flex flex-col` 구조를 따릅니다:
+
+- 헤더: `flex-shrink-0` (고정)
+- 콘텐츠: `flex-1 overflow-y-auto` (스크롤)
+- `App.vue`: `h-screen flex flex-col overflow-hidden`, `<main>`은 `flex-1 overflow-hidden`
+
+### 알림 방식
+
+- **브라우저 `alert()` / `confirm()` 사용 금지** → `useDialog` composable 사용
+- **성공 알림 없음** — "저장되었습니다" 등의 알림은 추가하지 않습니다. UI 갱신으로 충분합니다.
+- **오류 알림**: `showAlert()` (확인 버튼만)
+- **삭제 확인**: `showConfirm()` (확인/취소, 확인은 red)
+
 ## 프론트엔드 환경변수 관리
 
 프론트엔드는 Vite의 `.env` 파일 시스템으로 환경별 설정을 분리합니다.
@@ -105,25 +135,27 @@ hotfix/*  →  PR to main  →  서버 자동 배포  →  main을 develop에 �
 
 ### 환경별 파일
 
-| 파일 | 적용 환경 | 빌드 명령 |
-|------|-----------|-----------|
-| `frontend/.env.development` | 로컬 개발 | `vite dev` (자동) |
-| `frontend/.env.staging` | develop 브랜치 → Render 스테이징 | `vite build --mode staging` |
-| `frontend/.env.production` | main 브랜치 → Render 프로덕션 | `vite build` (자동) |
+| 파일                        | 적용 환경                        | 빌드 명령                   |
+| --------------------------- | -------------------------------- | --------------------------- |
+| `frontend/.env.development` | 로컬 개발                        | `vite dev` (자동)           |
+| `frontend/.env.staging`     | develop 브랜치 → Render 스테이징 | `vite build --mode staging` |
+| `frontend/.env.production`  | main 브랜치 → Render 프로덕션    | `vite build` (자동)         |
 
 ### 현재 환경변수 목록
 
-| 키 | 설명 | development | staging | production |
-|----|------|-------------|---------|------------|
+| 키             | 설명                | development             | staging                                        | production                                     |
+| -------------- | ------------------- | ----------------------- | ---------------------------------------------- | ---------------------------------------------- |
 | `VITE_API_URL` | 백엔드 API 기본 URL | `http://localhost:5244` | `https://budget-tracker-api-51n7.onrender.com` | `https://budget-tracker-api-51n7.onrender.com` |
 
 ### 규칙
+
 - `*.local` 파일은 `.gitignore`에 포함 → 커밋 금지 (민감 정보용)
 - `.env.development`, `.env.staging`, `.env.production`은 커밋 대상 (URL 등 비민감 정보만 포함)
 - 새 환경변수 추가 시 세 파일 모두 업데이트하고 이 표도 함께 갱신
 - `render.yaml`의 프론트엔드 `buildCommand`에 `--mode staging` 포함 확인
 
 ### Render 배포 시 주의
+
 - `VITE_API_URL`은 **빌드 타임**에 주입됨 → Render 대시보드 환경변수 설정 불필요
 - `.env.staging` / `.env.production` 파일 값이 직접 빌드에 반영됨
 
@@ -134,25 +166,26 @@ hotfix/*  →  PR to main  →  서버 자동 배포  →  main을 develop에 �
 
 ### 환경별 파일
 
-| 파일 | 적용 환경 | git 커밋 | 용도 |
-|------|-----------|----------|------|
-| `appsettings.json` | 전 환경 공통 기본값 | ✅ 커밋 | 로깅 기본값, AllowedHosts |
-| `appsettings.Development.json` | 로컬 개발 | ❌ gitignored | DB 연결 문자열, 상세 로깅 |
+| 파일                           | 적용 환경           | git 커밋      | 용도                      |
+| ------------------------------ | ------------------- | ------------- | ------------------------- |
+| `appsettings.json`             | 전 환경 공통 기본값 | ✅ 커밋       | 로깅 기본값, AllowedHosts |
+| `appsettings.Development.json` | 로컬 개발           | ❌ gitignored | DB 연결 문자열, 상세 로깅 |
 
 > `.gitignore` 규칙: `appsettings.*.json` 전부 제외 (`appsettings.json` 제외)
 
 ### 환경별 설정값
 
-| 항목 | 로컬 (Development) | Render 배포 (Production) | 관리 방식 |
-|------|-------------------|--------------------------|-----------|
-| `ConnectionStrings__DefaultConnection` | `appsettings.Development.json` | **Render 대시보드 env var** | 민감 → 파일 커밋 불가 |
-| `ASPNETCORE_ENVIRONMENT` | `Development` (자동) | `Production` (`render.yaml`에 명시) | 비민감 |
-| 로깅 레벨 | Debug (Development.json) | Information (`appsettings.json`) | 이미 분리됨 |
-| CORS | AllowAnyOrigin (MVP) | 동일 | 코드에서 관리 |
+| 항목                                   | 로컬 (Development)             | Render 배포 (Production)            | 관리 방식             |
+| -------------------------------------- | ------------------------------ | ----------------------------------- | --------------------- |
+| `ConnectionStrings__DefaultConnection` | `appsettings.Development.json` | **Render 대시보드 env var**         | 민감 → 파일 커밋 불가 |
+| `ASPNETCORE_ENVIRONMENT`               | `Development` (자동)           | `Production` (`render.yaml`에 명시) | 비민감                |
+| 로깅 레벨                              | Debug (Development.json)       | Information (`appsettings.json`)    | 이미 분리됨           |
+| CORS                                   | AllowAnyOrigin (MVP)           | 동일                                | 코드에서 관리         |
 
 ### 로컬 개발 초기 설정
 
 `backend/BudgetTracker.Api/appsettings.Development.json` 파일을 직접 생성 (git에 없음):
+
 ```json
 {
   "Logging": {
@@ -171,6 +204,7 @@ hotfix/*  →  PR to main  →  서버 자동 배포  →  main을 develop에 �
 ### Render 배포 시 필수 env var
 
 `budget-tracker-api` 서비스에 반드시 설정:
+
 - `ConnectionStrings__DefaultConnection` = Supabase 연결 문자열
 - `ASPNETCORE_ENVIRONMENT` = `Production` (render.yaml에 이미 포함)
 
@@ -179,3 +213,9 @@ hotfix/*  →  PR to main  →  서버 자동 배포  →  main을 develop에 �
 - **Notion 루트 페이지**: (새 프로젝트 시작 시 설정 필요)
 - **업데이트 원칙**: 사용자가 지시할 때 프로젝트 진행 상황에 맞춰 Notion 문서를 업데이트합니다.
 - **업데이트 트리거**: `docs/dev-process.md` 섹션 8.5 참조
+
+## 프로젝트 컨텍스트
+
+- 현재 진행 Sprint: docs/sprint/ 폴더의 최신 파일 참조
+- 기술 스택 및 규칙: docs/SPEC.md 참조
+- 새 세션 시작 시 반드시 해당 문서를 먼저 읽을 것
