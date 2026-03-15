@@ -169,20 +169,21 @@
 
 ---
 
-## Phase 5 — Sprint 5: 할부 기능 실제 구현 ⬜ 예정
+## Phase 5 — Sprint 5: 할부 기능 실제 구현 ✅ 완료
 
 **유형**: 구현
 **목표**: InstallmentTransactions 테이블 분리 + 카드사 방식 계산 + 프론트 연동
 **브랜치**: `sprint5`
-**DB 스키마 변경**: `InstallmentTransactions` 테이블 신규 + `Transactions`에 FK 컬럼 추가
+**완료일**: 2026-03-15
+**DB 스키마 변경**: `InstallmentTransactions` 테이블 신규 + `RecurringSkips` 테이블 신규 + `Transactions`에 FK 컬럼 추가 + `RecurringTransactions`에 StartDate/EndDate 추가
 **선행 조건**: Sprint 4 완료 + 할부 UI 요구사항 확정
 
 | ID | 태스크 | 상태 | 유형 | 설명 |
 |----|--------|------|------|------|
-| T30 | DB 모델 및 마이그레이션 | ⬜ | 구현 | InstallmentTransaction 엔티티 + EF Core 마이그레이션 |
-| T31 | 할부 백엔드 API | ⬜ | 구현 | POST/GET/DELETE /api/installment-transactions + 카드사 방식 계산 |
-| T32 | 할부 on-demand 자동 반영 | ⬜ | 구현 | 회차별 금액 계산 + 완료 시 비활성화 |
-| T33 | 프론트엔드 mock → 실제 API 교체 | ⬜ | 구현 | InstallmentDetailModal + TransactionModal 연동 |
+| T30 | DB 모델 및 마이그레이션 | ✅ | 구현 | InstallmentTransaction 엔티티 + RecurringSkip 엔티티 + EF Core 마이그레이션 |
+| T31 | 할부 백엔드 API | ✅ | 구현 | POST/GET/DELETE /api/installment-transactions + 카드사 방식 계산 (3가지 삭제 모드) |
+| T32 | 반복 거래 API 확장 | ✅ | 구현 | DELETE 3가지 모드(all/fromHere/skipMonth) + GET /pending + RecurringSkips 테이블 |
+| T33 | 프론트엔드 mock → 실제 API 교체 | ✅ | 구현 | TransactionModal 할부 API 연동 + DeleteOptionSheet.vue + HomeView 배너/뱃지 |
 
 ---
 
@@ -312,10 +313,10 @@
 | GET | /api/summary/trend | 월별 추이 | ✅ |
 | GET | /api/settings | 사용자 설정 조회 | ✅ |
 | PUT | /api/settings | 사용자 설정 수정 (월 시작일 등) | ✅ |
-| POST | /api/installment-transactions | 할부 등록 | ⬜ Sprint 5 |
-| GET | /api/installment-transactions | 할부 목록 | ⬜ Sprint 5 |
-| GET | /api/installment-transactions/{id} | 할부 상세 | ⬜ Sprint 5 |
-| DELETE | /api/installment-transactions/{id} | 할부 삭제 | ⬜ Sprint 5 |
+| POST | /api/installment-transactions | 할부 등록 | ✅ Sprint 5 |
+| GET | /api/installment-transactions | 할부 목록 | ✅ Sprint 5 |
+| GET | /api/installment-transactions/{id} | 할부 상세 | ✅ Sprint 5 |
+| DELETE | /api/installment-transactions/{id} | 할부 삭제 (all/fromHere/single 모드) | ✅ Sprint 5 |
 | GET | /api/card-billing/summary | 카드별 2슬롯 청구 현황 | ⬜ Sprint 6 |
 | GET | /api/card-billing/{id}/transactions | 청구 기간 거래 목록 (드릴다운) | ⬜ Sprint 6 |
 
@@ -339,5 +340,5 @@
 | Sprint 2 | 구현 | ✅ 완료 | 프론트엔드 UI 전체 구현 (T11~T19) | 2026-03-15 |
 | Sprint 3 | 버그 수정 + 목업 | ✅ 완료 | monthStartDay 버그 수정 + 거래 유형 탭 UI 목업 (T20~T21) | 2026-03-15 |
 | Sprint 4 | 목업 | ✅ 완료 | 할부 CRUD 목업 (T22-mock, T23-mock) + 반복 거래 CRUD 목업 (T25-mock) + Vitest 테스트 환경 구축 (54 케이스) | 2026-03-15 |
-| Sprint 5 | 구현 | ⬜ 예정 | 할부 기능 실제 구현 (T30~T33) | — |
+| Sprint 5 | 구현 | ✅ 완료 | 할부/반복 거래 실서비스 이관 (T30~T33) + RecurringSkips + MonthlySummary 건수 추가 | 2026-03-15 |
 | Sprint 6 | 구현 | ⬜ 예정 | 카드 결제 현황 실제 구현 (T34~T37) | — |

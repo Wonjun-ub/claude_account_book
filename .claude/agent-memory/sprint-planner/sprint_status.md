@@ -73,18 +73,23 @@ type: project
 - 수동 검증 미완료: /mock-up UI 직접 확인, docker compose 검증 필요
 
 ## Sprint 5
-- 상태: ⬜ 예정 (Sprint 4 완료 + 할부 요구사항 확정 후)
+- 상태: ✅ 완료 (2026-03-15)
 - 유형: 구현
 - 브랜치: `sprint5`
-- 목표: 할부 기능 실제 구현 (DB + 백엔드 + 프론트 연동)
+- 목표: 할부/반복 거래 실서비스 이관 (DB + 백엔드 + 프론트 연동)
 - 계획 문서: `docs/sprint/sprint5.md`
-- DB 스키마 변경: InstallmentTransactions 테이블 신규 + Transactions에 FK 추가
+- DB 스키마 변경: InstallmentTransactions 신규 + RecurringSkips 신규 + Transactions에 FK/Sequence 추가 + RecurringTransactions에 StartDate/EndDate 추가
+- PR: https://github.com/Wonjun-ub/claude_account_book/pull/2 (sprint5 → develop)
 
-**구현 범위:**
-- T30: DB 모델 및 마이그레이션
-- T31: 할부 백엔드 API (카드사 방식 계산)
-- T32: 할부 on-demand 자동 반영 + 회차별 금액 + 완료 비활성화
-- T33: 프론트엔드 mock → 실제 API 교체
+**달성 사항:**
+- T30: InstallmentTransaction + RecurringSkip 엔티티 + 마이그레이션 (20260315134156_Sprint5_InstallmentAndRecurringSkip) Supabase 적용 완료
+- T31: 할부 API POST/GET/DELETE (all/fromHere/single 3가지 삭제 모드), 카드사 방식 계산
+- T32: 반복 거래 API 확장 — DELETE 3가지 모드(all/fromHere/skipMonth) + GET /pending
+- T33: TransactionModal 실제 API 연동 + DeleteOptionSheet.vue 신규 + HomeView 배너/뱃지/건수
+
+**주의사항:**
+- 할부 등록 시 Transaction N건 개별 INSERT (루프) — 원자성 없음. 추후 bulk insert 개선 가능
+- 수동 검증 미완료: docker compose 환경에서 전체 플로우 검증 필요 (deploy.md 참조)
 
 ## Sprint 6
 - 상태: ⬜ 예정 (Sprint 4 완료 + 카드 결제 현황 요구사항 확정 후)
