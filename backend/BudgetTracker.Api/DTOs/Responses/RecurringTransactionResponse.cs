@@ -10,8 +10,8 @@ public class RecurringTransactionResponse
     public string PaymentMethodName { get; set; } = string.Empty;
     public string Type { get; set; } = string.Empty;
     public int DayOfMonth { get; set; }
-    public int? TotalInstallments { get; set; }
-    public int? RemainingInstallments { get; set; }
     public string? Memo { get; set; }
     public bool IsActive { get; set; }
+    public DateTime? StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
 }

@@ -2,7 +2,7 @@
 export type TransactionType = 'Income' | 'Expense'
 export type CategoryType = 'Income' | 'Expense'
 export type PaymentMethodType = 'Cash' | 'Card' | 'Point'
-export type RecurringType = 'Fixed' | 'Installment'
+export type RecurringType = 'Fixed'
 
 // ── 엔티티 ─────────────────────────────────────────────────────────────────
 export interface Category {
@@ -40,6 +40,10 @@ export interface Transaction {
   paymentMethodName: string
   isIncludedInTotal: boolean
   recurringTransactionId?: number
+  // 할부 관련 (nullable)
+  installmentTransactionId?: number
+  installmentSequence?: number
+  installmentTotalInstallments?: number
 }
 
 export interface RecurringTransaction {
@@ -51,8 +55,23 @@ export interface RecurringTransaction {
   paymentMethodName: string
   type: RecurringType
   dayOfMonth: number
-  totalInstallments?: number
-  remainingInstallments?: number
+  memo?: string
+  isActive: boolean
+  startDate?: string
+  endDate?: string
+}
+
+export interface InstallmentTransaction {
+  id: number
+  totalAmount: number
+  monthlyAmount: number
+  firstMonthAmount: number
+  totalInstallments: number
+  startDate: string
+  categoryId: number
+  categoryName: string
+  paymentMethodId: number
+  paymentMethodName: string
   memo?: string
   isActive: boolean
 }
@@ -72,6 +91,8 @@ export interface MonthlySummary {
   monthOverMonthChange: number
   periodStart: string
   periodEnd: string
+  incomeCount: number
+  expenseCount: number
 }
 
 export interface CategorySummary {
@@ -98,6 +119,7 @@ export interface CreateTransactionRequest {
   categoryId: number
   paymentMethodId: number
   isIncludedInTotal: boolean
+  recurringTransactionId?: number
 }
 
 export interface CreateCategoryRequest {
@@ -114,4 +136,24 @@ export interface CreatePaymentMethodRequest {
 export interface CreatePointBudgetRequest {
   name: string
   totalAmount: number
+}
+
+export interface CreateRecurringTransactionRequest {
+  amount: number
+  categoryId: number
+  paymentMethodId: number
+  dayOfMonth: number
+  memo?: string
+  startDate?: string
+  endDate?: string
+}
+
+export interface CreateInstallmentTransactionRequest {
+  totalAmount: number
+  totalInstallments: number
+  startDate: string
+  categoryId: number
+  paymentMethodId: number
+  memo?: string
+  isIncludedInTotal: boolean
 }

@@ -7,23 +7,26 @@
 
 ## 현재 미완료 항목
 
-### Sprint 1 — 백엔드 핵심 API (2026-03-13)
+### Sprint 5 — 할부/반복 거래 실서비스 이관 (2026-03-15)
 
 #### 자동 검증
 
-- ⬜ Docker 미실행으로 자동 검증 미수행 (pytest, API curl, Playwright 모두 건너뜀)
+- ✅ `npm test` — 54 케이스 전체 통과
+- ✅ `npm run build` — TypeScript 타입 오류 0건, 빌드 성공
+- ✅ `dotnet build` — 경고 0개, 오류 0개
+- ✅ DB 마이그레이션 Supabase 적용 완료
+- ⬜ 백엔드 서버 미실행 — dotnet test, API curl, Playwright 건너뜀
 
 #### 수동 검증 필요 항목
 
 - ⬜ `docker compose up --build` — 로컬 Docker 환경에서 전체 스택 실행 확인
-- ⬜ EF Core 마이그레이션 Supabase 적용 (`dotnet ef database update`)
-- ⬜ Swagger UI 접속 확인 (`http://localhost:5000/swagger`)
-- ⬜ 시나리오 1: 카테고리 생성 → 결제수단 생성 → 거래 생성 → 거래 수정 → 거래 삭제
-- ⬜ 시나리오 2: 포인트 예산 생성 → 포인트 결제수단으로 거래 생성 → 잔액 차감 확인
-- ⬜ 시나리오 3: 반복 지출 등록 → 월별 요약 API 호출 → 거래 자동 생성 확인
-- ⬜ 시나리오 4: 커스텀 월 시작일(25일) 설정 → 월별 요약 날짜 범위 정확성 확인
-- ⬜ 시나리오 5: 검색 파라미터 조합 필터링 정상 동작 확인
-- ⬜ PR 설명에 수동 검증 결과 스크린샷 첨부 (또는 .http 파일 응답 결과)
+- ⬜ 할부 등록 플로우: 지출 탭 → 할부 토글 ON → 개월수 입력 → 미리보기 확인 → 저장 → 목록 배지 표시
+- ⬜ 할부 삭제: X 버튼 → bottom sheet → all/fromHere/single 3가지 모드 각각 동작 확인
+- ⬜ 반복 거래 등록: 부가 정보 토글 → dayOfMonth/endDate 입력 → 저장 → 예정 배너 표시 확인
+- ⬜ 반복 거래 삭제: all/fromHere/skipMonth 3가지 모드 동작 확인
+- ⬜ 할부 금액 계산 검증: 100,000원/3개월 → 1회차 33,334원, 2~3회차 33,333원
+- ⬜ MonthlySummary incomeCount/expenseCount 표시 확인
+- ⬜ UI 디자인/시각적 품질 확인
 
 ---
 

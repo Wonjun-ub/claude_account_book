@@ -13,4 +13,8 @@ public class MonthlySummaryResponse
 
     public DateTime PeriodStart { get; set; }
     public DateTime PeriodEnd { get; set; }
+
+    // 건수 (IsIncludedInTotal 포함 여부 무관)
+    public int IncomeCount { get; set; }
+    public int ExpenseCount { get; set; }
 }

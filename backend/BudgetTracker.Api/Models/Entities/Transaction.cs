@@ -16,8 +16,15 @@ public class Transaction
     // 반복 지출로 자동 생성된 거래인 경우 연결 (nullable)
     public int? RecurringTransactionId { get; set; }
 
+    // 할부 거래인 경우 원부 연결 (nullable)
+    public int? InstallmentTransactionId { get; set; }
+
+    // 할부 회차 (1-based, nullable)
+    public int? InstallmentSequence { get; set; }
+
     // 탐색 속성
     public Category Category { get; set; } = null!;
     public PaymentMethod PaymentMethod { get; set; } = null!;
     public RecurringTransaction? RecurringTransaction { get; set; }
+    public InstallmentTransaction? InstallmentTransaction { get; set; }
 }

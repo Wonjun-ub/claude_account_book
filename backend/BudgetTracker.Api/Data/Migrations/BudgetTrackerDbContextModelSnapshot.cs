@@ -132,6 +132,53 @@ namespace BudgetTracker.Api.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("BudgetTracker.Api.Models.Entities.InstallmentTransaction", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CategoryId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("FirstMonthAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Memo")
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("MonthlyAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<int>("PaymentMethodId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<int>("TotalInstallments")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("PaymentMethodId");
+
+                    b.ToTable("InstallmentTransactions");
+                });
+
             modelBuilder.Entity("BudgetTracker.Api.Models.Entities.PaymentMethod", b =>
                 {
                     b.Property<int>("Id")
@@ -203,6 +250,30 @@ namespace BudgetTracker.Api.Data.Migrations
                     b.ToTable("PointBudgets");
                 });
 
+            modelBuilder.Entity("BudgetTracker.Api.Models.Entities.RecurringSkip", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Month")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RecurringTransactionId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecurringTransactionId");
+
+                    b.ToTable("RecurringSkips");
+                });
+
             modelBuilder.Entity("BudgetTracker.Api.Models.Entities.RecurringTransaction", b =>
                 {
                     b.Property<int>("Id")
@@ -221,6 +292,9 @@ namespace BudgetTracker.Api.Data.Migrations
                     b.Property<int>("DayOfMonth")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime?>("EndDate")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
@@ -230,11 +304,8 @@ namespace BudgetTracker.Api.Data.Migrations
                     b.Property<int>("PaymentMethodId")
                         .HasColumnType("integer");
 
-                    b.Property<int?>("RemainingInstallments")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("TotalInstallments")
-                        .HasColumnType("integer");
+                    b.Property<DateTime?>("StartDate")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Type")
                         .IsRequired()
@@ -267,6 +338,12 @@ namespace BudgetTracker.Api.Data.Migrations
                     b.Property<DateTime>("Date")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int?>("InstallmentSequence")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("InstallmentTransactionId")
+                        .HasColumnType("integer");
+
                     b.Property<bool>("IsIncludedInTotal")
                         .HasColumnType("boolean");
 
@@ -286,6 +363,8 @@ namespace BudgetTracker.Api.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CategoryId");
+
+                    b.HasIndex("InstallmentTransactionId");
 
                     b.HasIndex("PaymentMethodId");
 
@@ -317,6 +396,25 @@ namespace BudgetTracker.Api.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("BudgetTracker.Api.Models.Entities.InstallmentTransaction", b =>
+                {
+                    b.HasOne("BudgetTracker.Api.Models.Entities.Category", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BudgetTracker.Api.Models.Entities.PaymentMethod", "PaymentMethod")
+                        .WithMany()
+                        .HasForeignKey("PaymentMethodId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Category");
+
+                    b.Navigation("PaymentMethod");
+                });
+
             modelBuilder.Entity("BudgetTracker.Api.Models.Entities.PaymentMethod", b =>
                 {
                     b.HasOne("BudgetTracker.Api.Models.Entities.PointBudget", "PointBudget")
@@ -325,6 +423,17 @@ namespace BudgetTracker.Api.Data.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("PointBudget");
+                });
+
+            modelBuilder.Entity("BudgetTracker.Api.Models.Entities.RecurringSkip", b =>
+                {
+                    b.HasOne("BudgetTracker.Api.Models.Entities.RecurringTransaction", "RecurringTransaction")
+                        .WithMany("RecurringSkips")
+                        .HasForeignKey("RecurringTransactionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("RecurringTransaction");
                 });
 
             modelBuilder.Entity("BudgetTracker.Api.Models.Entities.RecurringTransaction", b =>
@@ -354,6 +463,11 @@ namespace BudgetTracker.Api.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("BudgetTracker.Api.Models.Entities.InstallmentTransaction", "InstallmentTransaction")
+                        .WithMany("Transactions")
+                        .HasForeignKey("InstallmentTransactionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("BudgetTracker.Api.Models.Entities.PaymentMethod", "PaymentMethod")
                         .WithMany("Transactions")
                         .HasForeignKey("PaymentMethodId")
@@ -367,6 +481,8 @@ namespace BudgetTracker.Api.Data.Migrations
 
                     b.Navigation("Category");
 
+                    b.Navigation("InstallmentTransaction");
+
                     b.Navigation("PaymentMethod");
 
                     b.Navigation("RecurringTransaction");
@@ -376,6 +492,11 @@ namespace BudgetTracker.Api.Data.Migrations
                 {
                     b.Navigation("RecurringTransactions");
 
+                    b.Navigation("Transactions");
+                });
+
+            modelBuilder.Entity("BudgetTracker.Api.Models.Entities.InstallmentTransaction", b =>
+                {
                     b.Navigation("Transactions");
                 });
 
@@ -393,6 +514,8 @@ namespace BudgetTracker.Api.Data.Migrations
 
             modelBuilder.Entity("BudgetTracker.Api.Models.Entities.RecurringTransaction", b =>
                 {
+                    b.Navigation("RecurringSkips");
+
                     b.Navigation("Transactions");
                 });
 #pragma warning restore 612, 618

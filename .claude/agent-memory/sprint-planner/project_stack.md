@@ -26,6 +26,7 @@ BudgetTracker — 개인 수입/지출 관리 웹앱 MVP
 
 ## 핵심 도메인 엔티티
 Transaction, Category, PaymentMethod, PointBudget, RecurringTransaction, UserSettings
+Sprint 4 추가 예정: InstallmentTransaction (할부 원부 전용 테이블)
 
 ## 주요 아키텍처 결정
 - MVP 단계에서 Repository 패턴 없이 DbContext 직접 주입으로 단순화
