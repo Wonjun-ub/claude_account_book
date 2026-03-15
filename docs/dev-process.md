@@ -12,14 +12,14 @@
 | 브랜치 | 역할 | 배포 환경 |
 |--------|------|----------|
 | `sprint{n}` | 스프린트 단위 개발 | 로컬 |
-| `develop` | 스테이징 통합 브랜치 | 로컬 Docker |
+| `develop` | 스테이징 통합 브랜치 | 로컬 직접 실행 |
 | `main` | 프로덕션 브랜치 | 프로덕션 서버 |
 | `hotfix/*` | 긴급 운영 패치 | main + develop 역머지 |
 
 ### Sprint 흐름
 
 ```
-sprint{n}  →  PR to develop  →  로컬 Docker 스테이징 검증  →  PR to main  →  서버 자동 배포
+sprint{n}  →  PR to develop  →  로컬 직접 실행 검증  →  PR to main  →  서버 자동 배포
 ```
 
 ### Hotfix 흐름
@@ -100,15 +100,14 @@ hotfix/*  →  PR to main  →  서버 자동 배포  →  main을 develop에 �
 | Playwright UI 검증 | ✅ 전체 | ✅ 변경분만 | ✅ 접속만 | **자동** |
 | Render 헬스체크 (`/api/health`) | — | — | ✅ | **자동** |
 | 백엔드 로그 오류 확인 | — | — | ✅ | **자동** |
-| `docker compose up --build` (스테이징) | ⬜ | ⬜ | — | **수동** |
+| 로컬 직접 실행 검증 (`dotnet run` + `npm run dev`) | ⬜ | ⬜ | — | **수동** |
 | `dotnet ef database update` | ⬜ DB변경시 | — | ⬜ DB변경시 | **수동** |
 | UI 디자인/시각적 품질 판단 | ⬜ | — | ⬜ | **수동** |
 
 ### 자동 검증 전제 조건
 
-- Docker 컨테이너가 실행 중일 때만 자동 실행 (스테이징 검증 시)
-- 서버가 응답하는지 확인 후 진행 (`http://localhost:5173`, `http://localhost:5244`)
-- Docker가 미실행인 경우: 자동 검증을 건너뛰고, deploy.md에 "⬜ Docker 미실행으로 자동 검증 미수행" 기록 후 수동 검증 항목으로 안내
+- 로컬 서버가 실행 중일 때 자동 실행 (`http://localhost:5173`, `http://localhost:5244`)
+- 서버가 미실행인 경우: 자동 검증을 건너뛰고, deploy.md에 미수행 기록 후 수동 검증 항목으로 안내
 
 ### 검증 결과 기록
 
@@ -120,11 +119,14 @@ hotfix/*  →  PR to main  →  서버 자동 배포  →  main을 develop에 �
 
 ## 6. 배포 프로세스
 
-### 6.1 로컬 스테이징 (develop 브랜치 + Docker)
+### 6.1 로컬 스테이징 (develop 브랜치)
 
 ```bash
-git pull origin develop
-docker compose up --build
+# 백엔드
+cd backend/BudgetTracker.Api && dotnet run
+
+# 프론트엔드 (별도 터미널)
+cd frontend && npm run dev
 ```
 
 ### 6.2 프로덕션 배포 (deploy-prod agent)
@@ -134,43 +136,21 @@ docker compose up --build
 3. GitHub Actions 자동 배포 (GHCR 이미지 빌드 → 서버 SSH 배포)
 4. 실서버 자동 검증 (5단계: SSH 헬스체크, 컨테이너 상태, 로그, Playwright)
 
-### 6.3 실서버 검증 (SSH 접속 정보)
-
-> TODO: 프로젝트 배포 서버 정보를 이 섹션에 기입하세요.
-
-- **키**: `{SSH_KEY_PATH}` (프로젝트 루트)
-- **호스트**: `{USER}@{SERVER_IP}` (AWS Lightsail 또는 다른 서버)
-- **앱 경로**: `{APP_PATH}`
+### 6.3 실서버 검증 (Render)
 
 ```bash
 # 헬스체크
-curl -s http://{SERVER_IP}/api/v1/health
+curl -s https://budget-tracker-api-51n7.onrender.com/api/health
 
-# 컨테이너 상태
-ssh -i {SSH_KEY_PATH} {USER}@{SERVER_IP} \
-  "cd {APP_PATH} && sudo docker compose -f docker-compose.prod.yml ps"
-
-# 백엔드 로그 오류 확인
-ssh -i {SSH_KEY_PATH} {USER}@{SERVER_IP} \
-  "cd {APP_PATH} && sudo docker compose -f docker-compose.prod.yml logs backend --tail 30 2>&1 | grep -i 'error\|traceback\|critical' || echo 'No errors found'"
+# Render 대시보드에서 배포 로그 확인
+# https://dashboard.render.com
 ```
 
 ### 6.4 롤백 시나리오
 
-#### A. 코드만 롤백 (이미지 태그 변경)
+#### A. 코드만 롤백 (Render 이전 배포로 복구)
 
-```bash
-# 이전 버전 태그 확인
-git log --oneline main -5
-
-# 서버 SSH 접속 후
-ssh -i {SSH_KEY_PATH} {USER}@{SERVER_IP}
-cd {APP_PATH}
-sudo docker compose -f docker-compose.prod.yml down
-sudo docker pull ghcr.io/{GITHUB_ORG}/{PROJECT}-backend:v{이전_버전}
-sudo docker pull ghcr.io/{GITHUB_ORG}/{PROJECT}-frontend:v{이전_버전}
-sudo docker compose -f docker-compose.prod.yml up -d
-```
+Render 대시보드 → 해당 서비스 → "Deploys" 탭 → 이전 성공 배포 선택 → "Rollback to this deploy"
 
 #### B. DB 포함 롤백 (주의: 데이터 손실 가능)
 
@@ -187,14 +167,8 @@ dotnet ef database update <이전_마이그레이션_이름>
 
 #### C. 긴급 서비스 중단
 
-```bash
-ssh -i {SSH_KEY_PATH} {USER}@{SERVER_IP} \
-  "cd {APP_PATH} && sudo docker compose -f docker-compose.prod.yml down"
-
-# 원인 조사 후 서비스 복구
-ssh -i {SSH_KEY_PATH} {USER}@{SERVER_IP} \
-  "cd {APP_PATH} && sudo docker compose -f docker-compose.prod.yml up -d"
-```
+Render 대시보드 → 해당 서비스 → "Suspend Service" (일시 중단)
+원인 조사 후 "Resume Service"로 복구
 
 ---
 

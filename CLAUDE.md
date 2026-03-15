@@ -32,7 +32,7 @@
 ### Sprint 흐름 (기능 개발)
 
 ```
-sprint{n}  →  PR to develop  →  로컬 Docker 스테이징 검증  →  PR to main  →  서버 자동 배포
+sprint{n}  →  PR to develop  →  로컬 직접 실행 검증  →  PR to main  →  서버 자동 배포
 ```
 
 ### Hotfix 흐름 (긴급 패치)
@@ -42,7 +42,7 @@ hotfix/*  →  PR to main  →  서버 자동 배포  →  main을 develop에 �
 ```
 
 - `sprint{n}`: 스프린트 단위 개발 브랜치
-- `develop`: 스테이징 통합 브랜치 (로컬 Docker로 검증)
+- `develop`: 스테이징 통합 브랜치 (로컬 직접 실행 검증)
 - `main`: 프로덕션 브랜치 (GitHub Actions → 서버 자동 배포)
 - `hotfix/*`: 긴급 운영 패치 (main 기반 분기, main PR 후 develop 역머지)
 

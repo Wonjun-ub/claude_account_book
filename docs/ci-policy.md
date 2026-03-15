@@ -8,7 +8,7 @@
 | 브랜치 | 역할 | 배포 환경 |
 |--------|------|----------|
 | `sprint{n}` | 스프린트 단위 개발 작업 | 로컬 |
-| `develop` | 스테이징 통합 브랜치 | 로컬 Docker |
+| `develop` | 스테이징 통합 브랜치 | 로컬 직접 실행 |
 | `main` | 프로덕션 브랜치 | 프로덕션 서버 |
 | `hotfix/*` | 긴급 운영 패치 | main + develop 동시 반영 |
 
@@ -19,7 +19,7 @@
 ```
 sprint{n}
   ↓ PR & merge (스프린트 완료 시)
-develop ──────────────→ 로컬 docker compose up --build 로 스테이징 검증
+develop ──────────────→ 로컬 직접 실행(dotnet run + npm run dev)으로 스테이징 검증
   ↓ PR & merge (QA 통과 후)
 main    ──────────────→ GitHub Actions → 프로덕션 서버 자동 배포
   ↓ tag
@@ -68,12 +68,14 @@ PR merge는 위 조건이 모두 통과된 후에만 가능합니다 (Branch Pro
 
 ### develop merge 후 (스테이징 검증)
 
-`develop` 브랜치는 별도 서버 없이 **로컬 Docker**로 스테이징 검증합니다.
+`develop` 브랜치는 로컬에서 직접 실행하여 스테이징 검증합니다.
 
 ```bash
-# 로컬에서 최신 코드 반영 후 검증
-git pull origin develop
-docker compose up --build
+# 백엔드
+cd backend/BudgetTracker.Api && dotnet run
+
+# 프론트엔드 (별도 터미널)
+cd frontend && npm run dev
 ```
 
 ### main merge 후 (프로덕션 배포)
@@ -109,16 +111,9 @@ docker compose up --build
 > 아래는 CI/CD 관점의 롤백 요약입니다.
 > 시나리오별 상세 절차(DB 백업 포함)는 [docs/dev-process.md 섹션 6.4](dev-process.md#64-롤백-시나리오) 참조.
 
-### 빠른 롤백 (Docker 이미지)
+### 빠른 롤백 (Render 이전 배포로 복구)
 
-```bash
-# 서버 SSH 접속 후
-cd {APP_PATH}
-docker compose -f docker-compose.prod.yml down
-docker pull ghcr.io/{GITHUB_ORG}/{PROJECT}-backend:v{이전_버전}
-docker pull ghcr.io/{GITHUB_ORG}/{PROJECT}-frontend:v{이전_버전}
-docker compose -f docker-compose.prod.yml up -d
-```
+Render 대시보드 → 해당 서비스 → "Deploys" 탭 → 이전 성공 배포 선택 → "Rollback to this deploy"
 
 ### DB 마이그레이션 롤백
 
