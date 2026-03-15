@@ -1,6 +1,6 @@
 # BudgetTracker — 제품 요구사항 문서 (PRD)
 
-> **버전**: 1.1 | **기준일**: 2026-03-15 | **범위**: MVP (Sprint 1~3+)
+> **버전**: 1.2 | **기준일**: 2026-03-15 | **범위**: MVP (Sprint 1~3+)
 
 ---
 
@@ -146,53 +146,122 @@
 
 ---
 
-### 4.6 거래 유형
+### 4.6 거래 유형 — 상세 동작 로직
 
-거래 등록 시 **일반 / 반복 / 할부** 3가지 유형 중 선택.
+모든 거래는 **단건(Single) / 할부(Installment) / 반복(Recurring)** 중 하나의 유형을 가진다.
 
----
+#### 테이블 구조 개요
 
-**일반 (One-time)**
-- 단건 거래, 현재와 동일
+```
+Transactions (거래 내역)          — 가계부 화면에 표시되는 개별 레코드
+Installment_Masters (할부 원부)   — 할부 설정값 저장, Transactions와 1:N
+Recurring_Masters (반복 원부)     — 반복 설정값 저장, Transactions와 1:N
+```
 
----
-
-**반복 (Fixed Recurring)**
-- 매월 지정일에 동일 금액 자동 생성
-- 예: 매월 25일 월세 500,000원
-- `recurring_transactions` 테이블에 템플릿 저장
-- 별도 종료 처리 전까지 무기한 반복
-
-**자동 반영 방식 (On-demand)**
-- 거래 목록/요약 조회 시 해당 월 미생성 반복 거래 자동 삽입
-- `RecurringTransactionId + Date(월)` 조합으로 중복 생성 방지 (멱등성)
+- `Transactions.installment_master_id` → `Installment_Masters.id` (nullable)
+- `Transactions.recurring_master_id`   → `Recurring_Masters.id` (nullable)
+- 두 FK가 모두 null이면 단건 거래
 
 ---
 
-**할부 (Installment)**
-- 총금액 + 개월수 입력 → 월 할부금 자동 계산
-- 월 할부금 = `floor(총금액 ÷ 개월수)`, 나머지 금액은 **첫 달에 합산** (카드사 방식)
-  - 예) 100,000원 / 3개월 → 1회차: 33,334원, 2~3회차: 33,333원
-- `installment_transactions` 전용 테이블에 원부 저장 (반복 지출 테이블과 분리)
-- 매월 On-demand 방식으로 회차별 금액 자동 생성, 완료 시 비활성화
+#### 단건 (Single)
+
+- 1회성 거래. FK 없음.
+- 수정/삭제: 해당 레코드만 영향.
+
+---
+
+#### 할부 (Installment)
+
+**저장 (Create)**
+
+1. `Installment_Masters`에 원부 1건 저장
+2. Transactions에 N개(= 개월수) 회차 레코드 **즉시 일괄 생성**
+   - 날짜: 시작일 기준 매월 동일 일자 (월말 초과 시 말일로 클램프)
+   - 금액: `floor(총금액 ÷ 개월수)`, 1회차에 나머지(총금액 - floor × N) 합산
+   - 예) 100,000원 / 3개월 → 1회차: 33,334원, 2~3회차: 33,333원
 
 **할부 원부 저장 항목**
+
 | 항목 | 설명 |
 |------|------|
-| 총 금액 | 원금 |
-| 월 할부금 | `floor(총금액 ÷ 개월수)` |
-| 총 개월수 | 입력값 |
-| 남은 개월수 | 매월 차감 |
-| 시작일 | 첫 번째 할부 날짜 |
-| 카테고리 / 결제수단 / 메모 | 거래 공통 속성 |
+| `total_amount` | 원금 |
+| `monthly_amount` | `floor(총금액 ÷ 개월수)` |
+| `total_installments` | 총 개월수 |
+| `start_date` | 첫 번째 할부 날짜 |
+| `category_id` / `payment_method_id` / `memo` | 거래 공통 속성 |
+
+**수정 (Update) — 원부 수정**
+
+- `Installment_Masters` 수정 시 연결된 **모든 Transactions 일괄 업데이트**
+- 업데이트 대상: 금액·카테고리·결제수단·메모
+- 날짜는 각 회차의 원래 날짜 유지 (회차 순서는 변경하지 않음)
+
+**삭제 (Delete)**
+
+- `Installment_Masters` 삭제 시 연결된 **모든 Transactions 함께 삭제** (CASCADE)
 
 **할부 거래 상세 팝업**
-- 거래 목록에서 할부 거래 클릭 시 일반 수정 모달 대신 할부 상세 팝업 표시
-- 표시 항목:
-  - 총 금액 (원금)
-  - 월 할부금 (이번 달 나가는 금액)
-  - 남은 금액 (남은 개월수 × 월 할부금)
-  - 진행 현황 (예: 3/12회차)
+
+- 거래 목록에서 할부 거래 클릭 시 상세 팝업 표시
+- 표시 항목: 총금액(원금) / 이번 달 할부금 / 남은 금액(잔여 개월 × 월 할부금) / 진행 현황(예: 3/12회차)
+
+---
+
+#### 반복 (Recurring)
+
+**저장 (Create)**
+
+- `Recurring_Masters`에 설정값 저장 (금액·반복일·카테고리·결제수단·메모·시작일·종료일)
+- **저장 시점에 Transactions를 즉시 생성하지 않음**
+
+**반복 원부 저장 항목**
+
+| 항목 | 설명 |
+|------|------|
+| `amount` | 반복 금액 |
+| `day_of_month` | 매월 반복 일자 (1~28) |
+| `start_date` | 최초 반복 시작 날짜 |
+| `end_date` | 반복 종료 날짜 (null = 무기한) |
+| `category_id` / `payment_method_id` / `memo` | 거래 공통 속성 |
+
+**생성 (On-demand Generation)**
+
+- 거래 목록/요약 조회 시 해당 월의 반복 거래 미생성 여부를 확인하여 자동 삽입
+- 중복 방지: `(recurring_master_id, 연월)` 조합으로 이미 생성된 레코드 존재 시 SKIP
+- 생성된 Transactions 레코드는 `recurring_master_id`로 원부와 연결
+
+**개별성 (독립 동작)**
+
+- 반복으로 생성된 Transactions는 생성 이후 **독립적인 단건처럼 동작**
+- 특정 달 거래의 금액·메모를 수정해도 `Recurring_Masters`(원부)에 영향 없음
+- 원부 수정은 **이후 미생성 회차**에만 적용됨 (이미 생성된 레코드 불변)
+
+**삭제 (Delete)**
+
+- 단건 삭제: 해당 월 거래 1건만 삭제 (`Recurring_Masters` 유지)
+- 원부 삭제: `Recurring_Masters` 삭제 → 이후 미생성 회차 차단, 기존 생성 레코드는 유지
+
+**반복 관리 화면 (별도 화면 요구사항)**
+
+- 설정 화면 내 "반복 거래 관리" 섹션으로 접근
+- 표시 항목: 반복명(카테고리) / 반복일 / 금액 / 시작일 / 상태(진행중/종료)
+- 기능: 원부 수정(이후 회차에 반영) / 원부 삭제(이후 회차 중단)
+
+---
+
+#### 수정/삭제 UX 가이드 — 유형별 분기
+
+거래 목록에서 할부·반복 거래의 상세 팝업을 열면 아래 분기를 명확히 안내한다.
+
+| 유형 | 수정 버튼 동작 | 삭제 버튼 동작 |
+|------|--------------|--------------|
+| 단건 | 단건 수정 모달 | 단건 삭제 확인 |
+| 할부 | "할부 원부 수정 (전체 회차 변경)" 안내 후 원부 수정 모달 | "전체 할부 삭제" 확인 다이얼로그 |
+| 반복 | 선택 다이얼로그: **이번 달만 수정** / **원부 수정(이후 회차 반영)** | 선택 다이얼로그: **이번 달만 삭제** / **반복 중단(이후 회차 차단)** |
+
+- 반복 "이번 달만 수정": 해당 Transactions 단건만 변경, 원부 불변
+- 반복 "원부 수정": `Recurring_Masters` 업데이트, 이미 생성된 레코드는 불변
 
 ---
 
@@ -308,3 +377,122 @@
 | `docs/backend-architecture.md` | 3계층 아키텍처 설계 |
 | `docs/frontend-data-rule.md` | 프론트엔드 데이터 처리 규칙 |
 | `docs/coding-style.md` | 코딩 컨벤션 |
+
+---
+
+## 8. DB 스키마 (ERD)
+
+> Mermaid erDiagram — PRD v1.2 기준 전체 엔티티 관계도
+
+```mermaid
+erDiagram
+
+    %% ── 설정 ──────────────────────────────────────────────────────────────
+    Settings {
+        int     id               PK
+        int     month_start_day  "1~28, 기본값 1"
+    }
+
+    %% ── 카테고리 ────────────────────────────────────────────────────────────
+    Categories {
+        int     id          PK
+        string  name
+        string  type        "Income | Expense"
+        bool    is_default  "기본 카테고리 삭제 불가"
+    }
+
+    %% ── 결제수단 & 포인트 예산 ─────────────────────────────────────────────
+    PointBudgets {
+        int     id               PK
+        string  name
+        int     total_amount
+        int     remaining_amount
+    }
+
+    PaymentMethods {
+        int     id                  PK
+        string  name
+        string  type                "Cash | Card | Point"
+        int     billing_cutoff_day  "nullable — Card 전용, 정산일"
+        int     payment_due_day     "nullable — Card 전용, 결제일"
+        int     point_budget_id     FK "nullable — Point 타입만"
+    }
+
+    %% ── 할부 원부 ────────────────────────────────────────────────────────────
+    Installment_Masters {
+        int     id                  PK
+        int     total_amount        "원금"
+        int     monthly_amount      "floor(총금액 ÷ 개월수)"
+        int     first_month_amount  "monthly + 나머지 보정"
+        int     total_installments  "총 개월수"
+        date    start_date          "1회차 날짜"
+        int     category_id         FK
+        int     payment_method_id   FK
+        string  memo                "nullable"
+    }
+
+    %% ── 반복 원부 ────────────────────────────────────────────────────────────
+    Recurring_Masters {
+        int     id                PK
+        int     amount
+        string  type              "Income | Expense"
+        int     day_of_month      "매월 반복 일자 1~28"
+        date    start_date
+        date    end_date          "nullable — null = 무기한"
+        bool    is_active
+        int     category_id       FK
+        int     payment_method_id FK
+        string  memo              "nullable"
+    }
+
+    %% ── 거래 내역 (핵심 테이블) ───────────────────────────────────────────────
+    Transactions {
+        int      id                    PK
+        int      amount
+        date     date
+        string   type                  "Income | Expense"
+        bool     is_included_in_total  "합산 포함 여부"
+        string   memo                  "nullable"
+        int      category_id           FK
+        int      payment_method_id     FK
+        int      installment_master_id FK "nullable — 할부 거래만"
+        int      installment_sequence  "nullable — 할부 회차 (1-based)"
+        int      recurring_master_id   FK "nullable — 반복으로 생성된 경우"
+        datetime created_at
+    }
+
+    %% ── 관계 정의 ────────────────────────────────────────────────────────────
+
+    PaymentMethods      }o--||  PointBudgets        : "잔액 관리 (Point 타입만)"
+
+    Installment_Masters }o--||  Categories          : "카테고리"
+    Installment_Masters }o--||  PaymentMethods      : "결제수단"
+
+    Recurring_Masters   }o--||  Categories          : "카테고리"
+    Recurring_Masters   }o--||  PaymentMethods      : "결제수단"
+
+    Transactions        }o--||  Categories          : "카테고리"
+    Transactions        }o--||  PaymentMethods      : "결제수단"
+    Transactions        }o--o|  Installment_Masters : "할부 원부 (nullable)"
+    Transactions        }o--o|  Recurring_Masters   : "반복 원부 (nullable)"
+```
+
+### 거래 유형 판별 규칙
+
+| `installment_master_id` | `recurring_master_id` | 거래 유형 |
+|------------------------|-----------------------|---------|
+| NULL | NULL | 단건 (Single) |
+| NOT NULL | NULL | 할부 (Installment) |
+| NULL | NOT NULL | 반복으로 생성된 단건 (Recurring-generated) |
+
+### 주요 제약 조건
+
+| 테이블 | 제약 |
+|--------|------|
+| `Categories` | `is_default=true`이거나 연결된 Transactions 존재 시 삭제 불가 |
+| `PaymentMethods` | Point 타입은 반드시 `point_budget_id` 보유 |
+| `PaymentMethods` | Card 타입만 `billing_cutoff_day` / `payment_due_day` 설정 가능 |
+| `Recurring_Masters` | `day_of_month` 범위: 1~28 (2월 말일 이슈 방지) |
+| `Installment_Masters` | 삭제 시 연결된 모든 Transactions CASCADE 삭제 |
+| `Recurring_Masters` | 삭제 시 기존 생성 Transactions 유지, 이후 미생성 회차만 차단 |
+| `Transactions` | `installment_master_id`와 `recurring_master_id` 동시 NOT NULL 불가 |

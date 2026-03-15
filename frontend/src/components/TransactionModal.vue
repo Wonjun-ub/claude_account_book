@@ -2,9 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import dayjs from 'dayjs'
 import { useAppStore } from '@/stores/app'
-import { useDialog } from '@/composables/useDialog'
 import { transactionsApi, recurringApi } from '@/api'
-import { calcMockInstallment } from '@/mocks/installment.mock'
 import type { Transaction, TransactionType } from '@/types'
 
 const props = defineProps<{
@@ -17,9 +15,8 @@ const emit = defineEmits<{
 }>()
 
 const store = useAppStore()
-const { showAlert } = useDialog()
 
-type TransactionKind = 'OneTime' | 'Fixed' | 'Installment'
+type TransactionKind = 'OneTime' | 'Fixed'
 
 const form = ref({
   type: 'Expense' as TransactionType,
@@ -43,17 +40,6 @@ const transactionKind = ref<TransactionKind>('OneTime')
 
 // 반복(Fixed) 전용: 매월 반복일
 const dayOfMonth = ref(dayjs().date())
-
-// 할부 전용: 총 개월수
-const installmentMonths = ref<number | undefined>(undefined)
-
-// 할부 미리보기 (금액 + 개월수 입력 시 실시간 계산)
-const installmentPreview = computed(() => {
-  const total = rawAmount()
-  const months = installmentMonths.value
-  if (!total || !months || months < 2) return null
-  return calcMockInstallment(total, months)
-})
 
 const saving = ref(false)
 const error = ref('')
@@ -108,7 +94,6 @@ watch(() => props.transaction, (tx) => {
     // 수정 모드: recurringTransactionId 여부로 유형 판단
     transactionKind.value = tx.recurringTransactionId ? 'Fixed' : 'OneTime'
     dayOfMonth.value = dayjs(tx.date).date()
-    installmentMonths.value = undefined
   } else {
     form.value = {
       type: 'Expense',
@@ -121,18 +106,11 @@ watch(() => props.transaction, (tx) => {
     categoryIds.value = { Income: 0, Expense: 0 }
     transactionKind.value = 'OneTime'
     dayOfMonth.value = dayjs().date()
-    installmentMonths.value = undefined
   }
 }, { immediate: true })
 
 async function save() {
   error.value = ''
-
-  // 할부 탭: 목업 안내 후 종료 (Sprint 5에서 실제 구현)
-  if (transactionKind.value === 'Installment') {
-    await showAlert('할부 등록 기능은 준비 중입니다.\n(Sprint 5에서 구현 예정)')
-    return
-  }
 
   const amount = rawAmount()
   if (!amount || amount <= 0) { error.value = '금액을 입력해주세요.'; return }
@@ -226,11 +204,6 @@ async function save() {
                 :class="transactionKind === 'Fixed' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500'"
                 class="flex-1 py-2 text-sm font-medium rounded-lg transition-all"
               >반복</button>
-              <button
-                @click="transactionKind = 'Installment'"
-                :class="transactionKind === 'Installment' ? 'bg-white shadow-sm text-orange-500' : 'text-gray-500'"
-                class="flex-1 py-2 text-sm font-medium rounded-lg transition-all"
-              >할부</button>
             </div>
           </template>
           <!-- 수정 모드: read-only 표시 -->
@@ -316,29 +289,6 @@ async function save() {
               <span class="text-sm text-gray-500">일</span>
             </div>
           </div>
-        </div>
-
-        <!-- ── 할부 설정 (Installment 탭 선택 시, 신규 등록만) ── -->
-        <div v-if="transactionKind === 'Installment' && !isEdit" class="px-4 py-3 space-y-3 border-t border-gray-100">
-          <p class="text-xs font-medium text-gray-400 uppercase tracking-wide">할부 설정</p>
-          <div>
-            <label class="block text-xs text-gray-500 mb-1">총 개월수</label>
-            <div class="flex items-center gap-2">
-              <input
-                v-model.number="installmentMonths"
-                type="number" min="2"
-                placeholder="12"
-                class="w-20 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-center focus:outline-none focus:border-blue-400"
-              />
-              <span class="text-sm text-gray-500">개월</span>
-            </div>
-          </div>
-          <!-- 월 할부금 미리보기 -->
-          <div v-if="installmentPreview" class="bg-orange-50 rounded-xl px-3 py-2.5 text-sm text-orange-700">
-            <p>1회차 <span class="font-semibold">{{ installmentPreview.firstMonthAmount.toLocaleString() }}원</span></p>
-            <p>2회차 이후 <span class="font-semibold">{{ installmentPreview.monthlyAmount.toLocaleString() }}원</span></p>
-          </div>
-          <p class="text-xs text-orange-400">※ 할부 등록은 현재 준비 중입니다 (Sprint 5 구현 예정)</p>
         </div>
 
         <!-- ── 부가 정보: 메모 · 합산 포함 ── -->

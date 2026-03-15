@@ -98,6 +98,84 @@ hotfix/*  →  PR to main  →  서버 자동 배포  →  main을 develop에 �
   - 프로덕션 배포는 main merge 시 GitHub Actions가 자동 수행합니다.
   - 배포 후 실서버 검증이 필요하면 deploy-prod agent의 5단계(실서버 자동 검증)를 참조합니다.
 
+## 목업 우선 개발 원칙 (Mockup-First)
+
+**모든 기능 변경은 반드시 목업 확인을 거친 후 실서비스(프론트엔드·백엔드)에 반영합니다.**
+이 원칙은 예외 없이 적용됩니다. 요구사항이 불명확한 상태에서 실서비스 코드를 수정하지 않습니다.
+
+### 핵심 규칙
+
+1. **신규 기능**: MockupView에 먼저 구현 → 로컬에서 UI/UX 확인 → 확정 후 실서비스 이관
+2. **기존 기능 변경**: 변경될 UI를 MockupView에 먼저 반영 → 확인 → 실서비스 수정
+3. **백엔드 변경**: API 설계는 목업 확인 후 확정. DB 스키마·API 변경은 목업 단계 이후에만 진행
+4. **목업 미확인 상태에서 실서비스 페이지(`HomeView`, `StatsView`, `SettingsView` 등) 수정 금지**
+
+### 목업 페이지 스펙
+
+| 항목 | 내용 |
+|------|------|
+| 경로 | `/mock-up` |
+| 접근 환경 | 로컬 개발(`vite dev`)에서만 접근 가능 |
+| 배포 포함 여부 | **미포함** — production 빌드 시 번들에서 완전 제외 |
+| Git 커밋 | **포함** — 팀 전체가 로컬에서 확인 가능해야 함 |
+| 백엔드 연동 | **없음** — `frontend/src/mocks/` 의 mock 데이터로만 동작 |
+| UI 구조 | 실제 앱과 동일한 하단 탭(가계부/통계/설정) + 상단 DEV 배너 |
+
+### 파일 구조
+
+```
+frontend/src/views/MockupView.vue     # 목업 뷰 — 실제 앱과 동일한 UI, mock 데이터로 동작
+frontend/src/mocks/                   # mock 데이터 및 함수 (Sprint별로 파일 추가)
+└── installment.mock.ts               # Sprint 3 할부 mock (Sprint 5에서 실제 API로 교체)
+```
+
+### 개발 흐름
+
+```
+1. 요구사항 확정
+      ↓
+2. MockupView에 해당 Sprint 섹션 추가
+   (mock 데이터로 UI 구현, 백엔드 미접근)
+      ↓
+3. 로컬 /mock-up 접속 → UI/UX 확인 및 피드백
+      ↓
+4. [확인 완료] 실서비스 이관
+   - 프론트엔드: 실제 View/Component에 반영 + 실제 API 연동
+   - 백엔드: DB 스키마 변경, API 구현
+      ↓
+5. MockupView에서 해당 섹션 제거 또는 Sprint 태그 유지
+```
+
+### 목업 페이지 기술 구현
+
+```typescript
+// frontend/src/router/index.ts
+// DEV 환경에서만 라우트 등록 — production 빌드 시 dead code elimination으로 번들 미포함
+if (import.meta.env.DEV) {
+  routes.push({
+    path: '/mock-up',
+    name: 'mockup',
+    component: () => import('@/views/MockupView.vue'),
+  })
+}
+```
+
+```typescript
+// frontend/src/App.vue
+// /mock-up 경로에서는 실서비스 하단 탭 숨김 (MockupView 내부 탭 사용)
+<nav v-if="route.path !== '/mock-up'" ...>
+```
+
+### Sprint 계획 시 준수 사항
+
+- 신규 기능이 포함된 Sprint는 반드시 **목업 구현 → 목업 확인 → 실서비스 구현** 순서로 태스크를 구성합니다.
+- 목업 확인 전 실서비스 구현 태스크를 시작하지 않습니다.
+- mock 데이터 파일(`frontend/src/mocks/`)에는 해당 Sprint 번호와 실제 API 교체 예정 Sprint를 주석으로 명시합니다.
+
+  ```typescript
+  // Sprint N 목업용 — Sprint M에서 실제 API로 교체
+  ```
+
 - **코드 수정 전 영향 범위 파악 필수**: 변경하는 코드가 영향을 미치는 모든 케이스(프론트엔드·백엔드 구분 없이)를 먼저 나열하고, 각 케이스가 수정 후에도 올바르게 동작하는지 확인합니다.
   - 예: 신규 등록 / 편집 모드 / 권한별 분기 / API 호출 경로 등
   - 한 케이스를 고치면서 다른 케이스가 깨지지 않도록 합니다.
