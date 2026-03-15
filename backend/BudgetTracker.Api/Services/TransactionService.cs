@@ -1,5 +1,6 @@
 using BudgetTracker.Api.DTOs.Requests;
 using BudgetTracker.Api.DTOs.Responses;
+using BudgetTracker.Api.Helpers;
 using BudgetTracker.Api.Models.Entities;
 using BudgetTracker.Api.Models.Enums;
 using BudgetTracker.Api.Repositories.Interfaces;
@@ -12,15 +13,18 @@ public class TransactionService : ITransactionService
     private readonly ITransactionRepository _transactionRepo;
     private readonly IPaymentMethodRepository _paymentMethodRepo;
     private readonly ICategoryRepository _categoryRepo;
+    private readonly ISettingsRepository _settingsRepo;
 
     public TransactionService(
         ITransactionRepository transactionRepo,
         IPaymentMethodRepository paymentMethodRepo,
-        ICategoryRepository categoryRepo)
+        ICategoryRepository categoryRepo,
+        ISettingsRepository settingsRepo)
     {
         _transactionRepo = transactionRepo;
         _paymentMethodRepo = paymentMethodRepo;
         _categoryRepo = categoryRepo;
+        _settingsRepo = settingsRepo;
     }
 
     // 목록 조회 + 검색/필터
@@ -35,6 +39,17 @@ public class TransactionService : ITransactionService
         decimal? minAmount,
         decimal? maxAmount)
     {
+        // year/month 지정 시 monthStartDay 기준으로 from/to 변환
+        // (from/to 직접 지정한 경우는 기존 동작 유지)
+        if (year.HasValue && month.HasValue && !from.HasValue && !to.HasValue)
+        {
+            var settings = await _settingsRepo.GetAsync();
+            var monthStartDay = settings?.MonthStartDay ?? 1;
+            (from, to) = DateRangeHelper.GetMonthRange(year.Value, month.Value, monthStartDay);
+            year = null;
+            month = null;
+        }
+
         var transactions = await _transactionRepo.GetAllAsync(
             year, month, keyword, categoryId, paymentMethodId, from, to, minAmount, maxAmount);
 
