@@ -7,7 +7,6 @@ import type { Transaction, TransactionType, RecurringType } from '@/types'
 
 const props = defineProps<{
   transaction: Transaction | null
-  initialType?: TransactionType
 }>()
 
 const emit = defineEmits<{
@@ -29,7 +28,6 @@ const form = ref({
 // 수입/지출 탭 전환 시 각 타입의 카테고리 선택값을 독립적으로 보존
 const categoryIds = ref<Record<TransactionType, number>>({ Income: 0, Expense: 0 })
 
-// 현재 탭의 카테고리 ID getter/setter (v-model에 동적 키 직접 사용 시 Vue 3 반응성 이슈 방지)
 const activeCategoryId = computed({
   get: () => categoryIds.value[form.value.type],
   set: (val: number) => { categoryIds.value[form.value.type] = val },
@@ -94,9 +92,16 @@ watch(() => props.transaction, (tx) => {
 
     categoryIds.value = { Income: 0, Expense: 0 }
     categoryIds.value[tx.type] = tx.categoryId
+
+    recurring.value = {
+      enabled: !!tx.recurringTransactionId,
+      type: 'Fixed',
+      dayOfMonth: dayjs(tx.date).date(),
+      totalInstallments: undefined,
+    }
   } else {
     form.value = {
-      type: props.initialType ?? 'Expense',
+      type: 'Expense',
       amount: '',
       date: dayjs().format('YYYY-MM-DD'),
       paymentMethodId: 0,
@@ -118,10 +123,8 @@ async function save() {
   error.value = ''
 
   const amount = rawAmount()
-  const activeCategoryId = categoryIds.value[form.value.type]
-
   if (!amount || amount <= 0) { error.value = '금액을 입력해주세요.'; return }
-  if (!activeCategoryId) { error.value = '카테고리를 선택해주세요.'; return }
+  if (!activeCategoryId.value) { error.value = '카테고리를 선택해주세요.'; return }
   if (!form.value.paymentMethodId) { error.value = '결제수단을 선택해주세요.'; return }
   if (!isEdit.value && recurring.value.enabled && recurring.value.type === 'Installment' && !recurring.value.totalInstallments) {
     error.value = '총 할부 횟수를 입력해주세요.'
@@ -136,7 +139,7 @@ async function save() {
       date: form.value.date,
       memo: form.value.memo || undefined,
       type: form.value.type,
-      categoryId: activeCategoryId,
+      categoryId: activeCategoryId.value,
       paymentMethodId: form.value.paymentMethodId,
       isIncludedInTotal: form.value.isIncludedInTotal,
     }
@@ -148,7 +151,7 @@ async function save() {
       if (recurring.value.enabled) {
         await recurringApi.create({
           amount,
-          categoryId: activeCategoryId,
+          categoryId: activeCategoryId.value,
           paymentMethodId: form.value.paymentMethodId,
           type: recurring.value.type,
           dayOfMonth: recurring.value.dayOfMonth,
@@ -260,8 +263,8 @@ async function save() {
           </div>
         </div>
 
-        <!-- ── 반복 설정 (신규 등록 시에만 표시) ── -->
-        <div v-if="!isEdit" class="px-4 py-3 space-y-3 border-t border-gray-100">
+        <!-- ── 반복 설정 ── -->
+        <div class="px-4 py-3 space-y-3 border-t border-gray-100">
           <div class="flex items-center justify-between">
             <p class="text-xs font-medium text-gray-400 uppercase tracking-wide">반복 설정</p>
             <div

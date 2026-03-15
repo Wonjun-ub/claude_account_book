@@ -16,7 +16,14 @@
       "Bash(cat > /c/Project/claude/frontend/.env.example << 'EOF'\n# 백엔드 API URL\nVITE_API_URL=http://localhost:5000\nEOF)",
       "Bash(npm run:*)",
       "Bash(nvm list:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(cd frontend:*)",
+      "Bash(taskkill /PID 21272 /F 2>&1)",
+      "Bash(cmd /c \"taskkill /PID 21272 /F\")",
+      "Bash(cmd /c \"tasklist | findstr BudgetTracker\")",
+      "Bash(cmd /c \"tasklist | findstr dotnet\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

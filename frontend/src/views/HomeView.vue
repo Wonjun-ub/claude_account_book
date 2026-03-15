@@ -15,10 +15,8 @@ const summary = ref<MonthlySummary | null>(null)
 const loadingTx = ref(false)
 const showModal = ref(false)
 const editTarget = ref<Transaction | null>(null)
-const initialType = ref<'Income' | 'Expense'>('Expense')
 const keyword = ref('')
 const selectedCategory = ref<number | null>(null)
-const fabOpen = ref(false)
 
 async function loadData() {
   loadingTx.value = true
@@ -71,13 +69,16 @@ const filteredTransactions = computed(() => {
 })
 
 watch([() => store.currentYear, () => store.currentMonth], loadData)
-onMounted(loadData)
+onMounted(async () => {
+  // 마스터 데이터(카테고리 등)가 로드된 후 거래 목록을 가져와야 한글 카테고리 이름이 표시됨
+  if (store.categories.length === 0) {
+    await store.loadMasterData()
+  }
+  loadData()
+})
 
-function openAdd(type: 'Income' | 'Expense') {
+function openAdd() {
   editTarget.value = null
-  initialType.value = type
-  fabOpen.value = false
-
   showModal.value = true
 }
 
@@ -257,53 +258,20 @@ function groupByDate(txs: Transaction[]) {
       </template>
     </div>
 
-    <!-- ── FAB 스피드 다이얼 ── -->
-    <div class="fixed bottom-20 right-4 flex flex-col items-end gap-3 z-40">
-      <!-- 수입/지출 버튼 (펼쳐졌을 때) -->
-      <Transition
-        enter-active-class="transition-all duration-200"
-        enter-from-class="opacity-0 translate-y-2"
-        enter-to-class="opacity-100 translate-y-0"
-        leave-active-class="transition-all duration-150"
-        leave-from-class="opacity-100 translate-y-0"
-        leave-to-class="opacity-0 translate-y-2"
-      >
-        <div v-if="fabOpen" class="flex flex-col items-end gap-2">
-          <button
-            @click="openAdd('Income')"
-            class="flex items-center gap-2 bg-white text-blue-600 border border-blue-200 shadow-md rounded-full px-4 py-2 text-sm font-semibold"
-          >
-            수입 +
-          </button>
-          <button
-            @click="openAdd('Expense')"
-            class="flex items-center gap-2 bg-white text-red-500 border border-red-200 shadow-md rounded-full px-4 py-2 text-sm font-semibold"
-          >
-            지출 +
-          </button>
-        </div>
-      </Transition>
-
-      <!-- 메인 FAB -->
-      <button
-        @click="fabOpen = !fabOpen"
-        class="w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center transition-transform duration-200"
-        :class="fabOpen ? 'rotate-45' : ''"
-      >
-        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-        </svg>
-      </button>
-    </div>
-
-    <!-- 배경 딤 (FAB 열렸을 때) -->
-    <div v-if="fabOpen" class="fixed inset-0 z-30" @click="fabOpen = false" />
+    <!-- ── FAB ── -->
+    <button
+      @click="openAdd"
+      class="fixed bottom-20 right-4 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center z-40"
+    >
+      <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+      </svg>
+    </button>
 
     <!-- 거래 모달 -->
     <TransactionModal
       v-if="showModal"
       :transaction="editTarget"
-      :initialType="initialType"
       @close="showModal = false"
       @saved="() => { showModal = false; loadData() }"
     />
