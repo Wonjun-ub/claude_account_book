@@ -1,5 +1,9 @@
 using System.Text.Json.Serialization;
 using BudgetTracker.Api.Data;
+using BudgetTracker.Api.Repositories;
+using BudgetTracker.Api.Repositories.Interfaces;
+using BudgetTracker.Api.Services;
+using BudgetTracker.Api.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -21,6 +25,23 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod();
     });
 });
+
+// ── Repositories ───────────────────────────────────────────────────────────
+builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
+builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
+builder.Services.AddScoped<IPaymentMethodRepository, PaymentMethodRepository>();
+builder.Services.AddScoped<IPointBudgetRepository, PointBudgetRepository>();
+builder.Services.AddScoped<IRecurringRepository, RecurringRepository>();
+builder.Services.AddScoped<ISettingsRepository, SettingsRepository>();
+
+// ── Services ───────────────────────────────────────────────────────────────
+builder.Services.AddScoped<ITransactionService, TransactionService>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
+builder.Services.AddScoped<IPointBudgetService, PointBudgetService>();
+builder.Services.AddScoped<IRecurringService, RecurringService>();
+builder.Services.AddScoped<ISettingsService, SettingsService>();
+builder.Services.AddScoped<ISummaryService, SummaryService>();
 
 // ── Controllers ────────────────────────────────────────────────────────────
 builder.Services.AddControllers()

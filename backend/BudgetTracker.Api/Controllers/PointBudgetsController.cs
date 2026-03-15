@@ -1,9 +1,7 @@
-using BudgetTracker.Api.Data;
 using BudgetTracker.Api.DTOs.Requests;
 using BudgetTracker.Api.DTOs.Responses;
-using BudgetTracker.Api.Models.Entities;
+using BudgetTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace BudgetTracker.Api.Controllers;
 
@@ -11,73 +9,40 @@ namespace BudgetTracker.Api.Controllers;
 [Route("api/point-budgets")]
 public class PointBudgetsController : ControllerBase
 {
-    private readonly BudgetTrackerDbContext _db;
+    private readonly IPointBudgetService _service;
 
-    public PointBudgetsController(BudgetTrackerDbContext db)
+    public PointBudgetsController(IPointBudgetService service)
     {
-        _db = db;
+        _service = service;
     }
 
     // GET /api/point-budgets
     [HttpGet]
     public async Task<ActionResult<IEnumerable<PointBudgetResponse>>> GetAll()
     {
-        var budgets = await _db.PointBudgets
-            .OrderBy(p => p.Name)
-            .Select(p => new PointBudgetResponse
-            {
-                Id = p.Id,
-                Name = p.Name,
-                TotalAmount = p.TotalAmount,
-                RemainingAmount = p.RemainingAmount
-            })
-            .ToListAsync();
+        var result = await _service.GetAllAsync();
 
-        return Ok(budgets);
+        return Ok(result);
     }
 
     // GET /api/point-budgets/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult<PointBudgetResponse>> GetById(int id)
     {
-        var budget = await _db.PointBudgets.FindAsync(id);
-        if (budget is null)
+        var result = await _service.GetByIdAsync(id);
+
+        if (result is null)
             return NotFound(new { message = "포인트 예산을 찾을 수 없습니다." });
 
-        return Ok(new PointBudgetResponse
-        {
-            Id = budget.Id,
-            Name = budget.Name,
-            TotalAmount = budget.TotalAmount,
-            RemainingAmount = budget.RemainingAmount
-        });
+        return Ok(result);
     }
 
     // POST /api/point-budgets
     [HttpPost]
     public async Task<ActionResult<PointBudgetResponse>> Create([FromBody] CreatePointBudgetRequest request)
     {
-        // 엔티티 생성 (RemainingAmount = TotalAmount로 초기화)
-        var budget = new PointBudget
-        {
-            Name = request.Name,
-            TotalAmount = request.TotalAmount,
-            RemainingAmount = request.TotalAmount
-        };
+        var result = await _service.CreateAsync(request);
 
-        // DB 저장
-        _db.PointBudgets.Add(budget);
-        await _db.SaveChangesAsync();
-
-        // 응답 반환
-        var response = new PointBudgetResponse
-        {
-            Id = budget.Id,
-            Name = budget.Name,
-            TotalAmount = budget.TotalAmount,
-            RemainingAmount = budget.RemainingAmount
-        };
-
-        return CreatedAtAction(nameof(GetById), new { id = budget.Id }, response);
+        return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 }
