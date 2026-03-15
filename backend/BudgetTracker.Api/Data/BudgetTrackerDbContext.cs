@@ -13,6 +13,8 @@ public class BudgetTrackerDbContext : DbContext
     public DbSet<PaymentMethod> PaymentMethods => Set<PaymentMethod>();
     public DbSet<PointBudget> PointBudgets => Set<PointBudget>();
     public DbSet<RecurringTransaction> RecurringTransactions => Set<RecurringTransaction>();
+    public DbSet<InstallmentTransaction> InstallmentTransactions => Set<InstallmentTransaction>();
+    public DbSet<RecurringSkip> RecurringSkips => Set<RecurringSkip>();
     public DbSet<UserSettings> UserSettings => Set<UserSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -39,6 +41,18 @@ public class BudgetTrackerDbContext : DbContext
         // ── Decimal 정밀도 설정 ─────────────────────────────────────────
         modelBuilder.Entity<Transaction>()
             .Property(t => t.Amount)
+            .HasPrecision(18, 2);
+
+        modelBuilder.Entity<InstallmentTransaction>()
+            .Property(i => i.TotalAmount)
+            .HasPrecision(18, 2);
+
+        modelBuilder.Entity<InstallmentTransaction>()
+            .Property(i => i.MonthlyAmount)
+            .HasPrecision(18, 2);
+
+        modelBuilder.Entity<InstallmentTransaction>()
+            .Property(i => i.FirstMonthAmount)
             .HasPrecision(18, 2);
 
         modelBuilder.Entity<PointBudget>()
@@ -95,6 +109,34 @@ public class BudgetTrackerDbContext : DbContext
             .WithOne(pb => pb.PaymentMethod)
             .HasForeignKey<PaymentMethod>(p => p.PointBudgetId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        // Transaction → InstallmentTransaction: SetNull (할부 원부 삭제 시 거래 유지)
+        modelBuilder.Entity<Transaction>()
+            .HasOne(t => t.InstallmentTransaction)
+            .WithMany(i => i.Transactions)
+            .HasForeignKey(t => t.InstallmentTransactionId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // InstallmentTransaction → Category: Restrict
+        modelBuilder.Entity<InstallmentTransaction>()
+            .HasOne(i => i.Category)
+            .WithMany()
+            .HasForeignKey(i => i.CategoryId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // InstallmentTransaction → PaymentMethod: Restrict
+        modelBuilder.Entity<InstallmentTransaction>()
+            .HasOne(i => i.PaymentMethod)
+            .WithMany()
+            .HasForeignKey(i => i.PaymentMethodId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // RecurringSkip → RecurringTransaction: Cascade
+        modelBuilder.Entity<RecurringSkip>()
+            .HasOne(s => s.RecurringTransaction)
+            .WithMany(r => r.RecurringSkips)
+            .HasForeignKey(s => s.RecurringTransactionId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // ── 시드 데이터 ─────────────────────────────────────────────────
         // 지출 카테고리 9개

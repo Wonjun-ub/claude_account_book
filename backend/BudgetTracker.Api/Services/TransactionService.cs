@@ -190,6 +190,9 @@ public class TransactionService : ITransactionService
         PaymentMethodId = t.PaymentMethodId,
         PaymentMethodName = t.PaymentMethod.Name,
         IsIncludedInTotal = t.IsIncludedInTotal,
-        RecurringTransactionId = t.RecurringTransactionId
+        RecurringTransactionId = t.RecurringTransactionId,
+        InstallmentTransactionId = t.InstallmentTransactionId,
+        InstallmentSequence = t.InstallmentSequence,
+        InstallmentTotalInstallments = t.InstallmentTransaction?.TotalInstallments,
     };
 }

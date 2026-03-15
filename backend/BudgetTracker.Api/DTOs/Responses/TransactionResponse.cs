@@ -15,4 +15,9 @@ public class TransactionResponse
     public string PaymentMethodName { get; set; } = string.Empty;
     public bool IsIncludedInTotal { get; set; }
     public int? RecurringTransactionId { get; set; }
+
+    // 할부 거래 관련 (nullable)
+    public int? InstallmentTransactionId { get; set; }
+    public int? InstallmentSequence { get; set; }
+    public int? InstallmentTotalInstallments { get; set; }
 }

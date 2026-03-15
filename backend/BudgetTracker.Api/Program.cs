@@ -32,6 +32,7 @@ builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<IPaymentMethodRepository, PaymentMethodRepository>();
 builder.Services.AddScoped<IPointBudgetRepository, PointBudgetRepository>();
 builder.Services.AddScoped<IRecurringRepository, RecurringRepository>();
+builder.Services.AddScoped<IInstallmentTransactionRepository, InstallmentTransactionRepository>();
 builder.Services.AddScoped<ISettingsRepository, SettingsRepository>();
 
 // ── Services ───────────────────────────────────────────────────────────────
@@ -40,6 +41,7 @@ builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
 builder.Services.AddScoped<IPointBudgetService, PointBudgetService>();
 builder.Services.AddScoped<IRecurringService, RecurringService>();
+builder.Services.AddScoped<IInstallmentTransactionService, InstallmentTransactionService>();
 builder.Services.AddScoped<ISettingsService, SettingsService>();
 builder.Services.AddScoped<ISummaryService, SummaryService>();
 

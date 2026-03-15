@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using BudgetTracker.Api.Models.Enums;
 
 namespace BudgetTracker.Api.DTOs.Requests;
 
@@ -16,14 +15,14 @@ public class CreateRecurringTransactionRequest
     public int PaymentMethodId { get; set; }
 
     [Required]
-    public RecurringType Type { get; set; }
-
-    [Required]
     [Range(1, 31, ErrorMessage = "일자는 1~31 사이여야 합니다.")]
     public int DayOfMonth { get; set; }
 
-    // Installment 타입일 때 필수
-    public int? TotalInstallments { get; set; }
-
     public string? Memo { get; set; }
+
+    // 반복 시작일 (null이면 즉시 시작)
+    public DateTime? StartDate { get; set; }
+
+    // 반복 종료일 (null이면 무기한)
+    public DateTime? EndDate { get; set; }
 }

@@ -27,4 +27,22 @@ public interface IRecurringRepository
 
     // 결제수단 존재 여부 확인
     Task<bool> PaymentMethodExistsAsync(int paymentMethodId);
+
+    // 특정 반복의 거래 삭제 (해당 날짜 이후)
+    Task DeleteTransactionsFromDateAsync(int recurringId, DateTime fromDate);
+
+    // 특정 반복의 거래 삭제 (기간 내)
+    Task DeleteTransactionsInPeriodAsync(int recurringId, DateTime periodStart, DateTime periodEnd);
+
+    // 특정 반복의 모든 거래 삭제
+    Task DeleteAllTransactionsAsync(int recurringId);
+
+    // 스킵 등록
+    Task AddSkipAsync(RecurringSkip skip);
+
+    // 스킵 존재 여부 확인
+    Task<bool> IsSkippedAsync(int recurringId, int year, int month);
+
+    // 특정 월에 이미 등록된 반복 거래 존재 여부
+    Task<bool> HasTransactionInPeriodAsync(int recurringId, DateTime periodStart, DateTime periodEnd);
 }

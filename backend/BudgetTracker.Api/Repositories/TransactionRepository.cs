@@ -29,6 +29,7 @@ public class TransactionRepository : ITransactionRepository
         var query = _db.Transactions
             .Include(t => t.Category)
             .Include(t => t.PaymentMethod)
+            .Include(t => t.InstallmentTransaction)
             .AsQueryable();
 
         // 날짜 범위 기본값: 현재 월 (파라미터 없을 때)
@@ -78,12 +79,14 @@ public class TransactionRepository : ITransactionRepository
             .ToListAsync();
     }
 
-    // 단건 조회 (카테고리, 결제수단 포함)
+    // 단건 조회 (카테고리, 결제수단, 할부 원부 포함)
     public async Task<Transaction?> GetByIdAsync(int id)
     {
         return await _db.Transactions
             .Include(t => t.Category)
             .Include(t => t.PaymentMethod)
+                .ThenInclude(p => p.PointBudget)
+            .Include(t => t.InstallmentTransaction)
             .FirstOrDefaultAsync(t => t.Id == id);
     }
 
@@ -108,6 +111,8 @@ public class TransactionRepository : ITransactionRepository
         // 최신 탐색 속성 재로드
         await _db.Entry(transaction).Reference(t => t.Category).LoadAsync();
         await _db.Entry(transaction).Reference(t => t.PaymentMethod).LoadAsync();
+        if (transaction.InstallmentTransactionId.HasValue)
+            await _db.Entry(transaction).Reference(t => t.InstallmentTransaction).LoadAsync();
     }
 
     // 삭제

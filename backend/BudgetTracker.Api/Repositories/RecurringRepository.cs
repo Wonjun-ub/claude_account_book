@@ -14,13 +14,14 @@ public class RecurringRepository : IRecurringRepository
         _db = db;
     }
 
-    // 모든 활성 반복 지출 조회 (카테고리, 결제수단, 포인트 예산 포함)
+    // 모든 활성 반복 지출 조회 (카테고리, 결제수단, 포인트 예산, 스킵 포함)
     public async Task<IEnumerable<RecurringTransaction>> GetAllActiveAsync()
     {
         return await _db.RecurringTransactions
             .Include(r => r.Category)
             .Include(r => r.PaymentMethod)
                 .ThenInclude(p => p.PointBudget)
+            .Include(r => r.RecurringSkips)
             .Where(r => r.IsActive)
             .ToListAsync();
     }
@@ -78,5 +79,62 @@ public class RecurringRepository : IRecurringRepository
     public async Task<bool> PaymentMethodExistsAsync(int paymentMethodId)
     {
         return await _db.PaymentMethods.AnyAsync(p => p.Id == paymentMethodId);
+    }
+
+    // 해당 날짜 이후 거래 삭제
+    public async Task DeleteTransactionsFromDateAsync(int recurringId, DateTime fromDate)
+    {
+        var txs = await _db.Transactions
+            .Where(t => t.RecurringTransactionId == recurringId && t.Date >= fromDate)
+            .ToListAsync();
+        _db.Transactions.RemoveRange(txs);
+        await _db.SaveChangesAsync();
+    }
+
+    // 모든 거래 삭제
+    public async Task DeleteAllTransactionsAsync(int recurringId)
+    {
+        var txs = await _db.Transactions
+            .Where(t => t.RecurringTransactionId == recurringId)
+            .ToListAsync();
+        _db.Transactions.RemoveRange(txs);
+        await _db.SaveChangesAsync();
+    }
+
+    // 스킵 등록
+    public async Task AddSkipAsync(RecurringSkip skip)
+    {
+        _db.RecurringSkips.Add(skip);
+        await _db.SaveChangesAsync();
+    }
+
+    // 스킵 존재 여부
+    public async Task<bool> IsSkippedAsync(int recurringId, int year, int month)
+    {
+        return await _db.RecurringSkips.AnyAsync(s =>
+            s.RecurringTransactionId == recurringId &&
+            s.Year == year &&
+            s.Month == month);
+    }
+
+    // 기간 내 거래 삭제
+    public async Task DeleteTransactionsInPeriodAsync(int recurringId, DateTime periodStart, DateTime periodEnd)
+    {
+        var txs = await _db.Transactions
+            .Where(t => t.RecurringTransactionId == recurringId
+                     && t.Date >= periodStart
+                     && t.Date <= periodEnd)
+            .ToListAsync();
+        _db.Transactions.RemoveRange(txs);
+        await _db.SaveChangesAsync();
+    }
+
+    // 특정 기간에 해당 반복 거래 존재 여부
+    public async Task<bool> HasTransactionInPeriodAsync(int recurringId, DateTime periodStart, DateTime periodEnd)
+    {
+        return await _db.Transactions.AnyAsync(t =>
+            t.RecurringTransactionId == recurringId &&
+            t.Date >= periodStart &&
+            t.Date <= periodEnd);
     }
 }

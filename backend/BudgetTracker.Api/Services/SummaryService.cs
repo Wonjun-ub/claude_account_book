@@ -41,8 +41,17 @@ public class SummaryService : ISummaryService
             .Where(t => t.Date >= periodStart && t.Date <= periodEnd && t.IsIncludedInTotal)
             .ToListAsync();
 
-        decimal totalIncome = transactions.Where(t => t.Type == TransactionType.Income).Sum(t => t.Amount);
-        decimal totalExpense = transactions.Where(t => t.Type == TransactionType.Expense).Sum(t => t.Amount);
+        var incomeList = transactions.Where(t => t.Type == TransactionType.Income).ToList();
+        var expenseList = transactions.Where(t => t.Type == TransactionType.Expense).ToList();
+        decimal totalIncome = incomeList.Sum(t => t.Amount);
+        decimal totalExpense = expenseList.Sum(t => t.Amount);
+
+        // 모든 거래 건수 (IsIncludedInTotal 무관)
+        var allTransactions = await _db.Transactions
+            .Where(t => t.Date >= periodStart && t.Date <= periodEnd)
+            .ToListAsync();
+        int incomeCount = allTransactions.Count(t => t.Type == TransactionType.Income);
+        int expenseCount = allTransactions.Count(t => t.Type == TransactionType.Expense);
 
         // 전월 대비 지출 변화 계산
         var prevMonth = month == 1 ? 12 : month - 1;
@@ -65,7 +74,9 @@ public class SummaryService : ISummaryService
             Balance = totalIncome - totalExpense,
             MonthOverMonthChange = totalExpense - prevExpense,
             PeriodStart = periodStart,
-            PeriodEnd = periodEnd
+            PeriodEnd = periodEnd,
+            IncomeCount = incomeCount,
+            ExpenseCount = expenseCount,
         };
     }
 
