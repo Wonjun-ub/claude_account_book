@@ -527,3 +527,127 @@ DateTime.SpecifyKind(request.Date, DateTimeKind.Utc)
 - `startDay=31`, 전월=2월(28일) → 시작일=2월 28일
 - `startDay=29`, month=3, 전월=2026년 2월 → 시작일=2월 28일 (비윤년)
 - `startDay=10`, month=1 → 전년도 12월 10일 ~ 당월 1월 9일
+
+---
+
+## 백엔드 테스트 작성 가이드
+
+### 테스트 프로젝트 구조
+
+```
+backend/
+├── BudgetTracker.Api/         # 실제 서비스
+└── BudgetTracker.Tests/       # 테스트 프로젝트 (xUnit + Moq)
+    ├── Helpers/               # DateRangeHelper 등 순수 함수 테스트
+    └── Services/              # Service 계층 테스트 (Repository 모킹)
+```
+
+- 테스트 파일 위치는 대상 파일 경로를 미러링합니다.
+  - `Services/TransactionService.cs` → `BudgetTracker.Tests/Services/TransactionServiceTests.cs`
+  - `Helpers/DateRangeHelper.cs` → `BudgetTracker.Tests/Helpers/DateRangeHelperTests.cs`
+- 테스트 클래스/파일명은 `{대상클래스}Tests`로 짓습니다.
+- `using Xunit;`는 **반드시 명시**합니다 (ImplicitUsings에 포함되지 않음).
+
+### 테스트 유형별 작성 방법
+
+#### 1. 순수 함수 테스트 (Helper/static 메서드)
+
+Repository/DB 없이 입력→출력만 검증합니다.
+
+```csharp
+using Xunit;
+using BudgetTracker.Api.Helpers;
+
+public class DateRangeHelperTests
+{
+    [Fact]
+    public void GetMonthRange_StartDay25_ReturnsCorrectRange()
+    {
+        var (from, to) = DateRangeHelper.GetMonthRange(2024, 3, 25);
+
+        Assert.Equal(new DateTime(2024, 2, 25, 0, 0, 0, DateTimeKind.Utc), from);
+        Assert.Equal(new DateTime(2024, 3, 24, 23, 59, 59, DateTimeKind.Utc), to);
+    }
+}
+```
+
+#### 2. Service 계층 테스트 (Repository 모킹)
+
+`Mock<IRepository>` 로 DB를 대체하고 Service 비즈니스 로직만 검증합니다.
+
+```csharp
+using Xunit;
+using Moq;
+using BudgetTracker.Api.Services;
+using BudgetTracker.Api.Repositories.Interfaces;
+
+public class RecurringServiceTests
+{
+    private readonly Mock<IRecurringRepository> _recurringRepo = new();
+    private readonly Mock<ITransactionRepository> _txRepo = new();
+    private readonly Mock<ISettingsRepository> _settingsRepo = new();
+    private RecurringService CreateService() =>
+        new(_recurringRepo.Object, _txRepo.Object, _settingsRepo.Object);
+
+    [Fact]
+    public async Task GetPendingAsync_SkippedMonth_ExcludesSkipped()
+    {
+        // Arrange
+        var recurring = new RecurringTransaction { /* ... */ };
+        _recurringRepo.Setup(r => r.GetActiveAsync()).ReturnsAsync([recurring]);
+        _txRepo.Setup(r => r.HasTransactionInPeriodAsync(/* ... */)).ReturnsAsync(false);
+
+        var svc = CreateService();
+
+        // Act
+        var result = await svc.GetPendingAsync(2024, 3);
+
+        // Assert
+        Assert.Empty(result);
+    }
+}
+```
+
+### 테스트 추가 기준
+
+새 기능을 구현할 때 다음 중 하나라도 해당하면 테스트를 추가합니다:
+
+| 상황 | 예시 |
+|------|------|
+| 순수 계산 로직 | 할부 금액 분할(`CalcInstallment`), 날짜 범위 계산 |
+| 비즈니스 규칙 분기 | 포인트 잔액 부족 시 거부, 스킵된 반복 제외 |
+| 엣지 케이스가 명확한 경우 | 말일 초과 클램핑, 윤년, 단 1개월 할부 |
+| 이전에 버그가 있었던 로직 | 잔액 복구 순서 버그 등 |
+
+### 테스트 네이밍 규칙
+
+```
+{메서드명}_{시나리오}_{기대결과}
+```
+
+```csharp
+// ✅ 좋은 예
+CalcInstallment_UnevenSplit_RemainderAddedToFirst
+GetPendingAsync_SkippedMonth_ExcludesSkipped
+GetMonthRange_StartDay31_ClampsToLastDayOfMonth
+
+// ❌ 나쁜 예
+Test1
+CalcInstallmentTest
+TestGetPending
+```
+
+### 테스트 실행
+
+```bash
+# 전체 솔루션 테스트
+dotnet test backend/BudgetTracker.sln
+
+# 테스트 프로젝트만
+dotnet test backend/BudgetTracker.Tests
+
+# 상세 출력
+dotnet test backend/BudgetTracker.sln --verbosity normal
+```
+
+> CI에서는 PR 생성 시 `dotnet test`가 자동으로 실행됩니다 (`.github/workflows/ci.yml`).

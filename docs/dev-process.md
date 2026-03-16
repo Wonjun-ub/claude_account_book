@@ -93,25 +93,23 @@ hotfix/*  →  PR to main  →  서버 자동 배포  →  main을 develop에 �
 
 ## 5. 검증 매트릭스 (Single Source of Truth)
 
-| 검증 항목 | Sprint | Hotfix | deploy-prod | 자동/수동 |
-|-----------|--------|--------|-------------|----------|
-| `dotnet test` (백엔드 단위 테스트) | ✅ | ✅ | — | **자동** |
-| API curl 검증 | ✅ 전체 | ✅ 변경분만 | — | **자동** |
-| Playwright UI 검증 | ✅ 전체 | ✅ 변경분만 | ✅ 접속만 | **자동** |
-| Render 헬스체크 (`/api/health`) | — | — | ✅ | **자동** |
-| 백엔드 로그 오류 확인 | — | — | ✅ | **자동** |
-| 로컬 직접 실행 검증 (`dotnet run` + `npm run dev`) | ⬜ | ⬜ | — | **수동** |
-| `dotnet ef database update` | ⬜ DB변경시 | — | ⬜ DB변경시 | **수동** |
-| UI 디자인/시각적 품질 판단 | ⬜ | — | ⬜ | **수동** |
+| 검증 항목 | Sprint | Hotfix | deploy-prod | 실행 방식 | 구현 상태 |
+|-----------|--------|--------|-------------|----------|----------|
+| `dotnet test` (백엔드 단위 테스트) | ✅ | ✅ | — | CI PR 체크 자동 | **구현 완료** |
+| `npm test` (프론트엔드 단위 테스트) | ✅ | ✅ | — | CI PR 체크 자동 | **구현 완료** |
+| Render 헬스체크 (`/api/health`) | — | — | ✅ | 자동 | **구현 완료** |
+| 로컬 직접 실행 검증 (`dotnet run` + `npm run dev`) | ⬜ | ⬜ | — | 수동 | — |
+| `dotnet ef database update` | ⬜ DB변경시 | — | ⬜ DB변경시 | 수동 | — |
+| UI 디자인/시각적 품질 판단 | ⬜ | — | ⬜ | 수동 | — |
+| API curl 검증 | — | — | — | — | **미구현 (계획)** |
+| Playwright E2E 검증 | — | — | — | — | **미구현 (계획)** |
 
-### 자동 검증 전제 조건
-
-- 로컬 서버가 실행 중일 때 자동 실행 (`http://localhost:5173`, `http://localhost:5244`)
-- 서버가 미실행인 경우: 자동 검증을 건너뛰고, deploy.md에 미수행 기록 후 수동 검증 항목으로 안내
+> **CI 자동 검증**: `dotnet test`와 `npm test`는 PR 생성 시 GitHub Actions가 자동 실행합니다 (`.github/workflows/ci.yml`). 로컬에서 수동으로 실행할 수도 있습니다.
 
 ### 검증 결과 기록
 
-- 자동 검증 결과는 deploy.md에 즉시 기록
+- 자동 검증(CI) 결과는 GitHub PR 체크에서 확인
+- 수동 검증 완료 시 deploy.md에 기록
 - 스크린샷은 `docs/sprint/sprint{N}/` 폴더에 저장
 - `✅ 자동 검증 완료` / `⬜ 수동 검증 필요` 구분 표시
 
