@@ -1,5 +1,6 @@
 using BudgetTracker.Api.Data;
 using BudgetTracker.Api.Models.Entities;
+using BudgetTracker.Api.Models.Enums;
 using BudgetTracker.Api.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -41,6 +42,50 @@ public class InstallmentTransactionRepository : IInstallmentTransactionRepositor
         await _db.Entry(installment).Reference(i => i.PaymentMethod).LoadAsync();
 
         return installment;
+    }
+
+    // 원부 저장 + N건 거래 생성을 하나의 DB 트랜잭션으로 원자적 처리
+    // transactionDrafts: Type·InstallmentTransactionId 미설정 상태로 전달
+    public async Task<InstallmentTransaction> BatchCreateAsync(
+        InstallmentTransaction master,
+        IEnumerable<Transaction> transactionDrafts)
+    {
+        // 카테고리 타입 조회 (거래 유형 결정용)
+        var category = await _db.Categories.FindAsync(master.CategoryId)
+            ?? throw new InvalidOperationException($"카테고리를 찾을 수 없습니다. Id={master.CategoryId}");
+        var txType = category.Type == CategoryType.Income
+            ? TransactionType.Income
+            : TransactionType.Expense;
+
+        await using var dbTx = await _db.Database.BeginTransactionAsync();
+        try
+        {
+            // 1단계: 원부 저장 → DB에서 master.Id 확보
+            _db.InstallmentTransactions.Add(master);
+            await _db.SaveChangesAsync();
+
+            // 2단계: 회차별 거래 일괄 추가 (원부 Id·거래 유형 연결)
+            foreach (var draft in transactionDrafts)
+            {
+                draft.InstallmentTransactionId = master.Id;
+                draft.Type = txType;
+                _db.Transactions.Add(draft);
+            }
+
+            await _db.SaveChangesAsync();
+            await dbTx.CommitAsync();
+
+            // 탐색 속성 로드
+            await _db.Entry(master).Reference(i => i.Category).LoadAsync();
+            await _db.Entry(master).Reference(i => i.PaymentMethod).LoadAsync();
+
+            return master;
+        }
+        catch
+        {
+            await dbTx.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task DeleteAsync(InstallmentTransaction installment)

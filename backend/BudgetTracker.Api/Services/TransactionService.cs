@@ -126,19 +126,31 @@ public class TransactionService : ITransactionService
         if (newPaymentMethod is null)
             return (null, "존재하지 않는 결제수단입니다.");
 
-        // 이전 포인트 복구
+        // 포인트 잔액 사전 검증 (엔티티 수정 전에 먼저 확인)
+        // 같은 결제수단 변경(금액만 변경)이면 복구 예정 금액을 가용 잔액에 포함
         var oldPaymentMethod = transaction.PaymentMethod;
+        if (newPaymentMethod.Type == PaymentMethodType.Point && newPaymentMethod.PointBudget is not null)
+        {
+            decimal availableBalance = newPaymentMethod.PointBudget.RemainingAmount;
+            if (transaction.PaymentMethodId == request.PaymentMethodId
+                && oldPaymentMethod.Type == PaymentMethodType.Point
+                && oldPaymentMethod.PointBudget is not null)
+            {
+                availableBalance += transaction.Amount; // 복구 예정 금액 포함
+            }
+
+            if (availableBalance < request.Amount)
+                return (null, $"포인트 잔액이 부족합니다. (잔액: {newPaymentMethod.PointBudget.RemainingAmount:N0}원)");
+        }
+
+        // 검증 통과 후 안전하게 복구·차감 처리
         if (oldPaymentMethod.Type == PaymentMethodType.Point && oldPaymentMethod.PointBudget is not null)
         {
             oldPaymentMethod.PointBudget.RemainingAmount += transaction.Amount;
         }
 
-        // 새 포인트 차감
         if (newPaymentMethod.Type == PaymentMethodType.Point && newPaymentMethod.PointBudget is not null)
         {
-            if (newPaymentMethod.PointBudget.RemainingAmount < request.Amount)
-                return (null, $"포인트 잔액이 부족합니다. (잔액: {newPaymentMethod.PointBudget.RemainingAmount:N0}원)");
-
             newPaymentMethod.PointBudget.RemainingAmount -= request.Amount;
         }
 

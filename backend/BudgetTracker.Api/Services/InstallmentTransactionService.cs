@@ -40,7 +40,7 @@ public class InstallmentTransactionService : IInstallmentTransactionService
         // 할부 금액 계산 (floor 방식, 나머지는 1회차에 합산)
         var (monthly, first) = CalcInstallment(request.TotalAmount, request.TotalInstallments);
 
-        // 원부 생성 (CreateAsync가 SaveChanges + 탐색 속성 로드까지 처리)
+        // 원부 엔티티 구성
         var master = new InstallmentTransaction
         {
             TotalAmount = request.TotalAmount,
@@ -54,34 +54,23 @@ public class InstallmentTransactionService : IInstallmentTransactionService
             IsActive = true,
         };
 
-        var created = await _repo.CreateAsync(master);
-
-        // 카테고리 타입으로 거래 유형 결정
-        var txType = created.Category.Type == CategoryType.Income
-            ? TransactionType.Income
-            : TransactionType.Expense;
-
-        // N건 Transaction 생성 (seq 1~N, 월 +1씩)
+        // 회차별 거래 Draft 구성 (Type·InstallmentTransactionId는 BatchCreateAsync에서 설정)
         var baseDate = request.StartDate.ToUniversalTime();
-        for (int seq = 1; seq <= request.TotalInstallments; seq++)
-        {
-            var targetDate = AddMonthsSafe(baseDate, seq - 1);
-
-            var transaction = new Transaction
+        var transactionDrafts = Enumerable.Range(1, request.TotalInstallments)
+            .Select(seq => new Transaction
             {
                 Amount = seq == 1 ? first : monthly,
-                Date = targetDate,
+                Date = AddMonthsSafe(baseDate, seq - 1),
                 Memo = request.Memo,
-                Type = txType,
                 CategoryId = request.CategoryId,
                 PaymentMethodId = request.PaymentMethodId,
                 IsIncludedInTotal = request.IsIncludedInTotal,
-                InstallmentTransactionId = created.Id,
                 InstallmentSequence = seq,
-            };
+            })
+            .ToList();
 
-            await _transactionRepo.CreateAsync(transaction);
-        }
+        // 원부 + N건 거래를 하나의 DB 트랜잭션으로 원자적 저장
+        var created = await _repo.BatchCreateAsync(master, transactionDrafts);
 
         return (MapToResponse(created), null);
     }
