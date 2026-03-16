@@ -107,91 +107,67 @@ function selectCard(card: MockCardBilling) {
       </svg>
     </button>
 
-    <!-- 펼쳐진 내용 -->
-    <div v-if="isExpanded" class="px-3 pb-3 space-y-3">
+    <!-- 펼쳐진 내용 — 반복 예정 + 카드 결제 예정 flat list -->
+    <div v-if="isExpanded" class="px-3 pb-3 space-y-1.5">
 
-      <!-- 반복 예정 섹션 (있을 때만) -->
-      <div v-if="recurringItems.length > 0">
-        <p class="text-[10px] font-semibold text-amber-600 uppercase tracking-wide px-1 mb-1.5">
-          반복 예정 {{ recurringItems.length }}건
-        </p>
-        <div
-          v-for="item in recurringItems"
-          :key="item.id"
-          class="flex items-center justify-between bg-white rounded-xl px-3 py-2.5 border border-amber-100"
-        >
-          <div class="flex items-center gap-2 min-w-0">
-            <div
-              class="w-1.5 h-1.5 rounded-full flex-shrink-0"
-              :class="item.type === 'Income' ? 'bg-blue-400' : 'bg-red-400'"
-            />
-            <span class="text-sm text-gray-700 truncate">{{ item.categoryName }}</span>
-            <span class="text-xs text-gray-400 flex-shrink-0">매월 {{ item.dayOfMonth }}일</span>
-            <span v-if="item.memo" class="text-xs text-gray-400 truncate">· {{ item.memo }}</span>
-          </div>
-          <div class="flex items-center gap-2 ml-2 flex-shrink-0">
-            <span
-              class="text-sm font-semibold"
-              :class="item.type === 'Income' ? 'text-blue-600' : 'text-red-500'"
-            >
-              {{ item.type === 'Income' ? '+' : '-' }}{{ item.amount.toLocaleString() }}원
-            </span>
-            <button
-              class="p-0.5 text-gray-300 hover:text-red-400"
-              @click.stop="emit('recurring-delete', item.id)"
-            >
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+      <!-- 반복 예정 rows -->
+      <div
+        v-for="item in recurringItems"
+        :key="`r-${item.id}`"
+        class="flex items-center justify-between bg-white rounded-xl px-3 py-2.5 border border-amber-100"
+      >
+        <div class="flex items-center gap-2 min-w-0">
+          <div
+            class="w-1.5 h-1.5 rounded-full flex-shrink-0"
+            :class="item.type === 'Income' ? 'bg-blue-400' : 'bg-red-400'"
+          />
+          <span class="text-sm text-gray-700 truncate">{{ item.categoryName }}</span>
+          <span class="text-xs text-gray-400 flex-shrink-0">매월 {{ item.dayOfMonth }}일</span>
+          <span v-if="item.memo" class="text-xs text-gray-400 truncate">· {{ item.memo }}</span>
+        </div>
+        <div class="flex items-center gap-2 ml-2 flex-shrink-0">
+          <span
+            class="text-sm font-semibold"
+            :class="item.type === 'Income' ? 'text-blue-600' : 'text-red-500'"
+          >
+            {{ item.type === 'Income' ? '+' : '-' }}{{ item.amount.toLocaleString() }}원
+          </span>
+          <button class="p-0.5 text-gray-300 hover:text-red-400" @click.stop="emit('recurring-delete', item.id)">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
       </div>
 
-      <!-- 카드 결제 예정 섹션 -->
-      <div>
-        <p class="text-[10px] font-semibold text-amber-600 uppercase tracking-wide px-1 mb-1.5">
-          카드 결제 예정
-          <span class="text-amber-400 font-normal">· 탭하면 해당 청구 내역만 필터링</span>
-        </p>
-        <button
-          v-for="card in mockCardBillings"
-          :key="card.id"
-          class="w-full flex items-center justify-between bg-white rounded-xl px-3 py-2.5 border border-amber-100 text-left mb-1.5 last:mb-0 active:bg-amber-50 transition-colors"
-          @click="selectCard(card)"
-        >
-          <div class="flex items-center gap-2 min-w-0">
-            <!-- 카드 아이콘 -->
-            <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-            </svg>
-            <div class="min-w-0">
-              <div class="flex items-center gap-1.5">
-                <span class="text-sm font-medium text-gray-800">{{ card.name }}</span>
-                <span
-                  class="text-[10px] px-1.5 py-0.5 rounded-full font-bold"
-                  :class="dDayClass(card.dueDate)"
-                >
-                  {{ calcDDay(card.dueDate) }}
-                </span>
-              </div>
-              <p class="text-[11px] text-gray-400 mt-0.5">
-                결제일 {{ card.dueDay }}일 · {{ periodLabel(card) }}
-              </p>
-            </div>
-          </div>
-          <div class="flex items-center gap-1.5 ml-2 flex-shrink-0">
-            <span class="text-sm font-bold text-gray-800">
-              {{ card.amount.toLocaleString() }}원
-            </span>
-            <!-- 드릴다운 화살표 -->
-            <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-            </svg>
-          </div>
-        </button>
-      </div>
+      <!-- 카드 결제 예정 rows -->
+      <button
+        v-for="card in mockCardBillings"
+        :key="`c-${card.id}`"
+        class="w-full flex items-center justify-between bg-white rounded-xl px-3 py-2.5 border border-amber-100 text-left active:bg-amber-50 transition-colors"
+        @click="selectCard(card)"
+      >
+        <div class="flex items-center gap-2 min-w-0">
+          <svg class="w-4 h-4 text-blue-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+          </svg>
+          <span class="text-sm text-gray-700 truncate">{{ card.name }}</span>
+          <span class="text-xs text-gray-400 flex-shrink-0">결제일 {{ card.dueDay }}일</span>
+          <span
+            class="text-[10px] px-1.5 py-0.5 rounded-full font-bold flex-shrink-0"
+            :class="dDayClass(card.dueDate)"
+          >{{ calcDDay(card.dueDate) }}</span>
+        </div>
+        <div class="flex items-center gap-1 ml-2 flex-shrink-0">
+          <span class="text-sm font-semibold text-red-500">
+            -{{ card.amount.toLocaleString() }}원
+          </span>
+          <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </button>
 
     </div>
   </div>
