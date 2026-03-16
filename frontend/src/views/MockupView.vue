@@ -1297,10 +1297,10 @@ onUnmounted(() => {
       </div>
 
       <!-- ══ 통계 ══ -->
-      <div v-show="activePage === 'stats'" class="flex-1 overflow-y-auto max-w-lg mx-auto w-full">
+      <div v-show="activePage === 'stats'" class="flex-1 overflow-hidden flex flex-col max-w-lg mx-auto w-full">
 
-        <!-- 헤더 -->
-        <div class="sticky top-0 z-10 bg-gray-900 px-4 pt-5 pb-4">
+        <!-- 헤더 (고정) -->
+        <div class="flex-shrink-0 bg-gray-900 px-4 pt-5 pb-4">
           <div class="flex items-center justify-between">
             <button @click="prevMonth" :disabled="!canGoPrev" class="p-1 rounded-full hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed">
               <svg class="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
@@ -1314,6 +1314,9 @@ onUnmounted(() => {
             </button>
           </div>
         </div>
+
+        <!-- 스크롤 영역 (헤더 제외) -->
+        <div class="flex-1 overflow-y-auto">
 
         <!-- 이번 달 요약 카드 (전월 비교) -->
         <div class="px-4 pb-4">
@@ -1445,6 +1448,7 @@ onUnmounted(() => {
           </div>
         </div>
 
+        </div><!-- /스크롤 영역 -->
       </div>
 
     </div>
