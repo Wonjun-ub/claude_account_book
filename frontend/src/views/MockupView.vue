@@ -1751,3 +1751,25 @@ onUnmounted(() => {
 
   </div>
 </template>
+
+<style scoped>
+/* 목업 내 스크롤 영역 — 다크 테마 얇은 스크롤바 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #4B5563 transparent;
+}
+*::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: #4B5563;
+  border-radius: 9999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #6B7280;
+}
+</style>
