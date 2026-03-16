@@ -1367,7 +1367,6 @@ onUnmounted(() => {
             <div class="bg-gray-700/60 rounded-xl p-3">
               <div class="text-[10px] text-gray-400 mb-1">잔액</div>
               <div class="text-white font-bold text-sm">{{ mockSummary.balance.toLocaleString() }}원</div>
-              <div class="text-[10px] text-gray-400 mt-1.5">수입 - 지출 - 저축</div>
             </div>
           </div>
         </div>
