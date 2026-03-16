@@ -8,16 +8,33 @@
 
 ## 기술 스택
 
-- **프론트엔드**: Vue3 + Vite + TypeScript
-- **CSS**: Tailwind CSS
-- **차트**: Chart.js
-- **날짜 처리**: Day.js
-- **백엔드**: .NET 8.0 Web API (C#)
-- **데이터베이스**: Supabase PostgreSQL
-- **ORM**: Entity Framework Core 8.x
-- **상태관리**: Pinia
-- **패키지 매니저 (프론트)**: npm
-- **배포**: Render (프론트 + 백엔드 통합)
+| 영역 | 기술 | 버전 | 선택 근거 |
+|------|------|------|----------|
+| 프론트엔드 | Vue3 + Vite + TypeScript | Vue 3.4 / Vite 4.x | .NET 8과의 조합으로 타입 안정성과 빠른 개발 속도 확보 |
+| 런타임 | Node.js | **16.x (고정)** | 인프라 호환성 및 환경 안정성 — 서버 환경이 Node 16에 고정되어 있으므로 모든 의존성은 Node 16 호환 버전을 사용해야 함 |
+| CSS | Tailwind CSS | 3.x | |
+| 차트 | Chart.js | 4.x | |
+| 날짜 처리 | Day.js | 1.x | |
+| 백엔드 | .NET 8.0 Web API (C#) | 8.x | Vue3 TypeScript와의 조합으로 프론트-백 전 계층 타입 안전성 달성 |
+| 데이터베이스 | Supabase PostgreSQL | — | Node 16 제약 환경에서도 REST API 기반으로 서버리스 기능을 원활히 활용 가능 |
+| ORM | Entity Framework Core | 8.x | |
+| 상태관리 | Pinia | 2.x | |
+| 패키지 매니저 | npm | — | |
+| 배포 | Render | — | 프론트 + 백엔드 통합 |
+
+### Node 16 호환성 제약
+
+> **모든 npm 패키지는 Node 16.x에서 동작하는 버전이어야 합니다.**
+
+- `frontend/package.json`의 `engines.node`는 `"16.x"`로 고정
+- Node 18+ 전용 패키지(예: cross-env v10+) 사용 금지 → Node 16 호환 버전으로 고정
+- CI(`ci.yml`)도 `node-version: "16"` 사용
+
+### 의존성 버전 관리 원칙
+
+- **Node 16 호환성 영향이 큰 패키지는 Fixed Version(`x.y.z`) 사용** — caret(`^`), tilde(`~`) 범위 지정 시 Node 16 비호환 버전으로 자동 업그레이드될 위험이 있음
+- 런타임 의존성(`dependencies`)은 특히 버전 고정 권장
+- devDependency 추가 시 해당 패키지의 Node 엔진 요구사항 확인 필수 (`npm info <pkg> engines`)
 
 ## 언어 및 커뮤니케이션 규칙
 
