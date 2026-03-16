@@ -653,3 +653,59 @@ dotnet test backend/BudgetTracker.sln --verbosity normal
 ```
 
 > CI에서는 PR 생성 시 `dotnet test`가 자동으로 실행됩니다 (`.github/workflows/ci.yml`).
+
+---
+
+## 스프린트 완료 기준 (Definition of Done)
+
+모든 스프린트는 기능 구현 완료 후 아래 조건을 **전부** 충족해야만 Done 처리할 수 있다.
+
+| # | 조건 | 합격 기준 |
+|---|------|----------|
+| 1 | 단위 테스트 통과 | Vitest 전체 PASS + 신규 기능 테스트 추가 / `dotnet test` 전체 PASS |
+| 2 | E2E 테스트 통과 | Playwright Galaxy S25(360×780) 핵심 시나리오 PASS (목업 스프린트 제외) |
+| 3 | 프론트엔드 빌드 | `npm run build` — TypeScript 오류 0건 |
+| 4 | 백엔드 빌드 | `dotnet build` — **경고(Warning) 0개**, 오류 0개 |
+| 5 | 검증 리포트 기록 | `docs/sprint/sprintN.md`의 `## 테스트 및 검증 리포트` 섹션 완성 |
+| 6 | PR 생성 | `sprintN → develop` 생성 완료 |
+
+### 스프린트 문서 테스트 섹션 템플릿
+
+모든 `docs/sprint/sprintN.md`와 `docs/deploy-history/YYYY-MM-DD.md`에는 아래 양식을 그대로 사용한다.
+
+```markdown
+## 테스트 및 검증 리포트
+
+### 단위 테스트
+
+| 도구 | 결과 | 케이스 수 | 파일 / 설명 |
+|------|------|---------|------------|
+| Vitest | ✅ 전체 통과 / ❌ N건 실패 | N 케이스 | 파일명 나열 |
+| xUnit | ✅ 전체 통과 / ❌ N건 실패 | N 케이스 | 파일명 나열 |
+
+### E2E 테스트 (Playwright — Galaxy S25 360×780)
+
+| 시나리오 | 결과 | 비고 |
+|---------|------|------|
+| 시나리오 설명 | ✅ PASS / ❌ FAIL / — 해당없음 | 특이사항 |
+
+### 빌드 검증
+
+| 항목 | 결과 |
+|------|------|
+| `npm run build` (TypeScript) | ✅ 오류 0건 / ❌ N건 |
+| `dotnet build` | ✅ 경고 0건, 오류 0건 / ❌ 내용 |
+
+### 발견된 이슈 및 해결 방안
+
+| # | 이슈 | 해결 방안 | 상태 |
+|---|------|----------|------|
+| 1 | 이슈 설명 | 해결 방법 | ✅ 해결 / ⬜ 미해결 |
+
+### 검증 증빙
+
+| 항목 | 위치 / 파일명 |
+|------|-------------|
+| 스크린샷 | `docs/sprint/sprintN/screenshot-*.png` |
+| 테스트 로그 | `docs/deploy-history/YYYY-MM-DD.md` |
+```
