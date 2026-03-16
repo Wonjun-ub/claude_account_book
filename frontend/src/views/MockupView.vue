@@ -929,28 +929,41 @@ const statsCatTrendData = computed(() => {
 
 let catTrendChart: Chart | null = null
 const catTrendCanvas = ref<HTMLCanvasElement | null>(null)
+const catTrendHiddenCats = ref<string[]>([])
+
+function toggleCatTrend(name: string) {
+  const idx = catTrendHiddenCats.value.indexOf(name)
+  if (idx >= 0) catTrendHiddenCats.value.splice(idx, 1)
+  else catTrendHiddenCats.value.push(name)
+  renderCatTrend()
+}
 
 function renderCatTrend() {
   if (!catTrendCanvas.value) return
   catTrendChart?.destroy()
   const { labels, categories } = statsCatTrendData.value
   if (categories.length === 0) { catTrendChart = null; return }
+  // 숨김 제외, 색상 인덱스는 전체 목록 기준으로 고정
+  const visible = categories.filter(cat => !catTrendHiddenCats.value.includes(cat.name))
   catTrendChart = new Chart(catTrendCanvas.value, {
     type: 'line',
     data: {
       labels,
-      datasets: categories.map((cat, i) => ({
-        label: cat.name,
-        data: cat.data,
-        borderColor: CHART_COLORS[i % CHART_COLORS.length],
-        backgroundColor: 'transparent',
-        borderDash: [5, 5],
-        borderWidth: 2,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        pointBackgroundColor: CHART_COLORS[i % CHART_COLORS.length],
-        tension: 0.3,
-      })),
+      datasets: visible.map((cat) => {
+        const colorIdx = categories.findIndex(c => c.name === cat.name)
+        return {
+          label: cat.name,
+          data: cat.data,
+          borderColor: CHART_COLORS[colorIdx % CHART_COLORS.length],
+          backgroundColor: 'transparent',
+          borderDash: [5, 5],
+          borderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          pointBackgroundColor: CHART_COLORS[colorIdx % CHART_COLORS.length],
+          tension: 0.3,
+        }
+      }),
     },
     options: {
       responsive: true,
@@ -1034,7 +1047,11 @@ async function renderStatsCharts() {
 }
 
 watch(activePage, (page) => { if (page === 'stats') renderStatsCharts() })
-watch([mockYear, mockMonth, statsType], () => { if (activePage.value === 'stats') renderStatsCharts() })
+watch([mockYear, mockMonth], () => {
+  catTrendHiddenCats.value = []  // 월 변경 시 카테고리 필터 초기화
+  if (activePage.value === 'stats') renderStatsCharts()
+})
+watch(statsType, () => { if (activePage.value === 'stats') renderStatsCharts() })
 
 onUnmounted(() => {
   donutChart?.destroy()
@@ -1395,13 +1412,23 @@ onUnmounted(() => {
             </div>
             <template v-else>
               <canvas ref="catTrendCanvas" style="max-height:220px"></canvas>
-              <!-- 커스텀 범례 (내장 범례 대체 — 줄바꿈 지원) -->
-              <div class="flex flex-wrap gap-x-3 gap-y-2 mt-3">
-                <div v-for="(cat, i) in statsCatTrendData.categories" :key="cat.name" class="flex items-center gap-1.5">
-                  <span class="w-5 h-0 border-t-2 border-dashed flex-shrink-0" :style="`border-color:${CHART_COLORS[i % CHART_COLORS.length]}`"></span>
-                  <span class="text-xs text-gray-300">{{ cat.name }}</span>
-                </div>
+              <!-- 커스텀 범례 — 클릭으로 카테고리 토글 -->
+              <div class="flex flex-wrap gap-x-2 gap-y-2 mt-3">
+                <button
+                  v-for="(cat, i) in statsCatTrendData.categories"
+                  :key="cat.name"
+                  @click="toggleCatTrend(cat.name)"
+                  class="flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all"
+                  :class="catTrendHiddenCats.includes(cat.name)
+                    ? 'bg-gray-700/40 opacity-40'
+                    : 'bg-gray-700/70'"
+                >
+                  <span class="w-4 h-0 border-t-2 border-dashed flex-shrink-0"
+                    :style="`border-color:${CHART_COLORS[i % CHART_COLORS.length]}`"></span>
+                  <span class="text-xs text-gray-200 whitespace-nowrap">{{ cat.name }}</span>
+                </button>
               </div>
+              <p class="text-[10px] text-gray-500 mt-2">항목을 눌러 표시/숨김 전환</p>
             </template>
           </div>
         </div>
