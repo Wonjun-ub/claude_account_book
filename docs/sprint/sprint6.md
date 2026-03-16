@@ -5,12 +5,12 @@
 | 항목 | 내용 |
 |------|------|
 | 스프린트 번호 | Sprint 6 |
-| 유형 | 3단계: 목업 → 승인 → 구현 |
-| 브랜치 | `sprint6` (Step 3 시작 시 생성) |
+| 유형 | 목업 (Step 3 실서비스 구현은 Sprint 8로 이관) |
+| 브랜치 | `sprint6` |
 | 기간 | 2026-03-16 시작 |
-| 상태 | 🔄 Step 1 v2 완료 / Step 2 승인 대기 중 |
+| 상태 | ✅ Step 1 v3 완료 / Step 2 승인 완료 (2026-03-16) |
 | 대상 브랜치 (PR) | `develop` |
-| DB/백엔드 변경 | 있음 — Step 3에서 진행 (`PaymentMethods`에 `BillingCutoffDay`, `PaymentDueDay` 컬럼 추가) |
+| DB/백엔드 변경 | **없음** — 전략 변경: 통계/설정 목업 완료 후 Sprint 8에서 전체 실서비스 구현 |
 | 선행 조건 | Sprint 5 완료 ✅ |
 
 ---
@@ -21,42 +21,75 @@
 
 ---
 
-## Step 1 — 목업 ✅ 완료 (2026-03-16, v2)
+## Step 1 — 목업 ✅ 완료 (2026-03-16, v3)
 
 > **v1 → v2 변경**: 별도 탭(CardBillingView) 방식 → 메인 화면 '예정된 지출' 통합 위젯으로 전면 재설계.
-> 구 파일(`CardBillingView.vue`, `CardBillingCard.vue`, `CardBillingSlot.vue`, `cardBilling.mock.ts`) 삭제됨.
+> **v2 → v3 변경**: 홈 탭 UI/UX 전면 개선 — 다크모드, 저축 수단, 필터 아코디언, 반복 예정 배너 개선 등 대규모 UX 정제.
 
 ### 구현 완료 파일
 
 | 파일 | 설명 |
 |------|------|
 | `frontend/src/mocks/upcoming.mock.ts` | 신한카드(id=1) + 국민카드(id=4), 정산일=15/결제일=25 하드코딩 더미 데이터 |
-| `frontend/src/components/UpcomingWidget.vue` | 예정된 지출 아코디언 위젯 — 반복 예정 섹션 + 카드 결제 예정 섹션 |
-| `frontend/src/views/MockupView.vue` | 홈 탭 — 반복 예정 배너 → UpcomingWidget 교체, 카드 필터 칩, 국민카드 mock 데이터 추가 |
+| `frontend/src/components/UpcomingWidget.vue` | 카드 결제 예정 위젯 — D-day 배지, 카드별 청구 내역 아코디언, 다크모드 |
+| `frontend/src/views/MockupView.vue` | 홈 탭 전체 — 아래 상세 참조 |
 | `frontend/src/App.vue` | 4탭 → 3탭(가계부/통계/설정) 원복 |
 | `frontend/src/router/index.ts` | `/card-billing` 라우트 제거 |
+| `frontend/tests/e2e/sprint6-mockup-features.spec.ts` | Playwright E2E 테스트 22개 (저축/필터/카드모달/서머리/반복배너/레이아웃) |
 
-### Step 1 구현 상세
+### Step 1 v3 구현 상세
 
-**mock 데이터 구조 (`upcoming.mock.ts`):**
-- `MockCardBilling`: id, name, dueDay, dueDate, periodFrom, periodTo, amount, txCount
-- 청구 기간: 전월 16일 ~ 당월 15일 (정산일=15 기준)
-- 결제 예정일: 당월 25일 (결제일=25)
+**다크모드 전환 (MockupView + UpcomingWidget)**
+- 전체 배경: `bg-gray-900` (헤더/하단탭) / `bg-gray-800` (카드/서피스) / `bg-gray-700` (인풋/칩)
+- 텍스트: 일반 `text-gray-100`, 보조 `text-gray-400`
+- 하단 탭 아이콘·텍스트: `text-white`
 
-**UpcomingWidget.vue 인터랙션:**
+**저축(Savings) 거래 유형**
+- 색상: `text-emerald-500` (금액 및 배지 전체 통일)
+- 서머리 4열: 수입(파란) / 지출(빨간) / 저축(초록) / 잔액(흰색)
+- 잔액 공식: `수입 - 지출 - 저축`
+- 반복 예정 배너·카드 청구 배너에 저축 금액 합산 표시
+
+**저축 수단 (MOCK_SAVINGS_METHODS)**
+- 기업은행(id=101) / 카카오뱅크(id=102) / 현금(id=103)
+- 폼: 지출 → "결제수단" 드롭다운, 저축 → "저축 수단" 드롭다운 (분리), 수입 → 수단 없음
+- ID 공간 분리: 결제수단 1~99, 저축 수단 101~
+
+**검색/필터 아코디언 (UpcomingWidget 아래, 거래 목록 위)**
+- 토글 버튼으로 패널 열기/닫기
+- 메모 키워드 검색 (실시간 필터)
+- 유형 칩: 전체 / 수입 / 지출 / 저축
+- 카테고리 칩: 유형 선택 시 해당 유형 카테고리 표시
+- 월 이동 시 필터 자동 초기화
+
+**일별 서머리**
+- 날짜 그룹 헤더에 `+수입 / -지출 / -저축` 형식
+- 각 금액은 수입/지출/저축 색상으로 구분
+
+**카드 결제 모달 카테고리 필터**
+- 카드 청구 모달 상단에 해당 청구 기간의 카테고리 칩 자동 생성
+- 칩 선택 시 해당 카테고리 거래만 표시
+- 모달 닫기 시 필터 초기화
+
+**반복 예정 배너 개선**
+- 배너 아이템 **탭** → 폼 모달 pre-fill (날짜=당월 예정일, 마스터 데이터 자동 입력). 저장 시 `recurringMasterId` 연결 → 배너 자동 제거
+- 배너 아이템 **[×]** → 삭제 옵션 바텀 시트 (`@click.stop` 버블링 차단)
+- 배너 헤더: 수입/지출/저축 금액 색상 구분 표시
+
+**mock 데이터 (`MockupView.vue`)**
+- `MOCK_DATA_VERSION = 'v11'` (버전 변경 시 localStorage 자동 초기화 + 초기 데이터 즉시 저장)
+- 저축 거래(id=20,21,22) 및 반복 마스터(id=2,3): `paymentMethodId` → 저축 수단 ID(103)로 교체
+
+**UpcomingWidget.vue 인터랙션 (카드 결제 전용으로 분리)**
 - 헤더 탭 → 아코디언 펼침/닫힘
-- 반복 항목 [×] 탭 → `recurring-delete` emit → MockupView가 삭제 옵션 바텀 시트 호출
-- 카드 항목 탭 → `filter-card` emit → 위젯 닫힘 + 메인 거래 목록 필터링
-- 카드 필터 칩 [×] → `activeCardFilter = null` → 월별 목록 복원
-
-**거래 필터 로직 (`MockupView.vue`):**
-- 카드 필터 활성 시: `txTransactions` 전체에서 `paymentMethodId + 날짜 범위` 필터 (월 범위 우회)
+- 카드 항목 탭 → `filter-card` emit → MockupView가 카드 필터 칩 표시 + 거래 목록 필터링
+- D-day 배지: D-day(빨강) / D-7 이내(주황) / 지난 결제(회색)
 
 ---
 
-## Step 2 — UI/UX 확정 ⬜ 승인 대기
+## Step 2 — UI/UX 확정 ✅ 승인 완료 (2026-03-16)
 
-> Step 1 목업을 로컬에서 `/card-billing` 접속하여 확인 후 승인해주세요.
+> Step 1 목업을 로컬에서 `/mock-up` 접속하여 확인 후 승인해주세요.
 
 ### 확인 항목
 
@@ -75,9 +108,10 @@
 
 ---
 
-## Step 3 — 실제 구현 ⬜ 대기 중 (Step 2 승인 후 시작)
+## Step 3 — 실제 구현 ⬜ 보류 (Sprint 8에서 진행)
 
-> **Step 2 승인 전에는 DB/백엔드 코드를 절대 건드리지 않습니다.**
+> **전략 변경**: 통계/설정 화면 목업(Sprint 7)까지 완료 후 Sprint 8에서 카드 결제 현황 실서비스를 포함한 전체 구현을 진행합니다.
+> Step 3 세부 태스크(T34~T37)는 아래에 유지하되, Sprint 8 계획 시 참조합니다.
 
 ### DB 스키마 변경
 
