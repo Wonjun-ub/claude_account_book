@@ -252,16 +252,16 @@ function groupByDate(txs: Transaction[]) {
       <!-- 월 네비게이터 + 요약 카드 -->
       <div class="bg-blue-600 text-white px-4 pt-10 pb-6">
         <div class="flex items-center justify-between mb-4">
-          <button @click="store.prevMonth()" class="p-1 rounded-full hover:bg-blue-500">
+          <button data-testid="btn-prev-month" @click="store.prevMonth()" class="p-1 rounded-full hover:bg-blue-500">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
             </svg>
           </button>
           <div class="text-center">
-            <div class="text-lg font-semibold">{{ store.currentMonthLabel }}</div>
+            <div data-testid="month-label" class="text-lg font-semibold">{{ store.currentMonthLabel }}</div>
             <div v-if="periodRange" class="text-xs text-blue-200 mt-0.5">{{ periodRange }}</div>
           </div>
-          <button @click="store.nextMonth()" class="p-1 rounded-full hover:bg-blue-500">
+          <button data-testid="btn-next-month" @click="store.nextMonth()" class="p-1 rounded-full hover:bg-blue-500">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
             </svg>
@@ -398,6 +398,7 @@ function groupByDate(txs: Transaction[]) {
           <div
             v-for="tx in txs"
             :key="tx.id"
+            data-testid="transaction-item"
             class="bg-white rounded-xl p-3 mb-2 flex items-center shadow-sm cursor-pointer active:bg-gray-50"
             :class="!tx.isIncludedInTotal ? 'opacity-50' : ''"
             @click="openEdit(tx)"
@@ -442,6 +443,7 @@ function groupByDate(txs: Transaction[]) {
 
     <!-- ── FAB ── -->
     <button
+      data-testid="fab-add"
       @click="openAdd"
       class="fixed bottom-20 right-4 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center z-40"
     >

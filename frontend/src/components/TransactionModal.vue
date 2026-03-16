@@ -263,6 +263,7 @@ async function save() {
               <template v-if="!isEdit">
                 <button
                   v-if="form.type === 'Expense'"
+                  data-testid="installment-toggle"
                   @click="isInstallment = !isInstallment"
                   :class="isInstallment ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-500'"
                   class="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium transition-colors"
@@ -282,6 +283,7 @@ async function save() {
               </span>
             </div>
             <input
+              data-testid="amount-input"
               :value="form.amount"
               @input="onAmountInput"
               type="text"
@@ -297,6 +299,7 @@ async function save() {
               <label class="block text-xs text-gray-500 mb-1">총 개월수</label>
               <div class="flex items-center gap-2">
                 <input
+                  data-testid="installment-months"
                   v-model.number="installmentMonths"
                   type="number" min="2" max="60" placeholder="12"
                   class="w-24 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-center focus:outline-none focus:border-orange-400"
@@ -333,6 +336,7 @@ async function save() {
           <div>
             <label class="block text-xs text-gray-500 mb-1">카테고리</label>
             <select
+              data-testid="category-select"
               v-model="activeCategoryId"
               class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-blue-400"
             >
@@ -345,6 +349,7 @@ async function save() {
           <div v-if="form.type === 'Expense'">
             <label class="block text-xs text-gray-500 mb-1">결제수단</label>
             <select
+              data-testid="payment-method-select"
               v-model="form.paymentMethodId"
               class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-blue-400"
             >
@@ -366,6 +371,7 @@ async function save() {
           <div>
             <label class="block text-xs text-gray-500 mb-1">메모 (선택)</label>
             <input
+              data-testid="memo-input"
               v-model="form.memo"
               type="text"
               placeholder="메모를 입력하세요"
@@ -377,6 +383,7 @@ async function save() {
           <div v-if="!isEdit && !isInstallment">
             <label class="flex items-center gap-3 cursor-pointer">
               <div
+                data-testid="recurring-toggle"
                 @click="isRecurring = !isRecurring"
                 :class="isRecurring ? 'bg-teal-500' : 'bg-gray-200'"
                 class="w-11 h-6 rounded-full transition-colors relative flex-shrink-0"
@@ -389,6 +396,7 @@ async function save() {
               <div class="mt-3 flex items-center gap-2">
                 <span class="text-sm text-gray-600">매월</span>
                 <input
+                  data-testid="recurring-day"
                   v-model.number="recurringDay"
                   type="number" min="1" max="28"
                   class="w-16 border border-gray-200 rounded-xl px-3 py-2 text-sm text-center focus:outline-none focus:border-teal-400"
@@ -426,6 +434,7 @@ async function save() {
       <!-- 저장 버튼 (하단 고정) -->
       <div class="flex-shrink-0 px-4 py-4 border-t border-gray-100">
         <button
+          data-testid="save-btn"
           @click="save"
           :disabled="saving"
           :class="isInstallment && form.type === 'Expense' && !isEdit ? 'bg-orange-500 hover:bg-orange-600' : 'bg-blue-600 hover:bg-blue-700'"

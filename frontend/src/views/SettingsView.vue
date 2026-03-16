@@ -140,12 +140,13 @@ onMounted(() => {
         <h2 class="font-semibold text-gray-700 mb-3">월 시작일</h2>
         <div class="flex items-center gap-3">
           <input
+            data-testid="month-start-day-input"
             v-model.number="monthStartDay"
             type="number" min="1" max="28"
             class="w-20 border border-gray-200 rounded-xl px-3 py-2 text-center text-sm focus:outline-none focus:border-blue-400"
           />
           <span class="text-sm text-gray-500">일부터 한 달로 계산</span>
-          <button @click="saveMonthStartDay" class="ml-auto text-sm bg-blue-600 text-white px-4 py-2 rounded-xl">저장</button>
+          <button data-testid="save-month-start-day" @click="saveMonthStartDay" class="ml-auto text-sm bg-blue-600 text-white px-4 py-2 rounded-xl">저장</button>
         </div>
       </section>
 
