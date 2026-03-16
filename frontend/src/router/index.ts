@@ -5,6 +5,8 @@ import type { RouteRecordRaw } from 'vue-router'
 const routes: RouteRecordRaw[] = [
   { path: '/', name: 'home', component: HomeView },
   { path: '/stats', name: 'stats', component: () => import('@/views/StatsView.vue') },
+  // Sprint 6 Step 1 목업 — Step 3에서 실제 API 연동
+  { path: '/card-billing', name: 'card-billing', component: () => import('@/views/CardBillingView.vue') },
   { path: '/settings', name: 'settings', component: () => import('@/views/SettingsView.vue') },
 ]
 
