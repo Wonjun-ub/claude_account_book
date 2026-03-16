@@ -6,9 +6,14 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import {
   Chart, ArcElement, DoughnutController, Tooltip, Legend,
   CategoryScale, LinearScale, BarElement, BarController,
+  LineElement, PointElement, LineController,
 } from 'chart.js'
 
-Chart.register(ArcElement, DoughnutController, Tooltip, Legend, CategoryScale, LinearScale, BarElement, BarController)
+Chart.register(
+  ArcElement, DoughnutController, Tooltip, Legend,
+  CategoryScale, LinearScale, BarElement, BarController,
+  LineElement, PointElement, LineController,
+)
 import dayjs from 'dayjs'
 import { calcMockInstallment } from '@/mocks/installment.mock'
 import { getMonthPeriod } from '@/utils/monthPeriod'
@@ -894,6 +899,78 @@ const statsTrendData = computed(() => {
   return result
 })
 
+// 카테고리별 지출 6개월 추이 (지출 전용 점선 라인차트)
+const statsCatTrendData = computed(() => {
+  const months: { year: number; month: number; label: string }[] = []
+  for (let i = 5; i >= 0; i--) {
+    let y = mockYear.value
+    let m = mockMonth.value - i
+    while (m <= 0) { m += 12; y-- }
+    months.push({ year: y, month: m, label: `${m}월` })
+  }
+  const catMap = new Map<string, number[]>()
+  months.forEach(({ year, month }, idx) => {
+    const { start, end } = getMonthPeriod(year, month, settingMonthStartDay.value)
+    const txs = txTransactions.value.filter(
+      t => t.type === 'Expense' && t.isIncludedInTotal && t.date >= start && t.date <= end
+    )
+    for (const tx of txs) {
+      if (!catMap.has(tx.categoryName)) catMap.set(tx.categoryName, Array(6).fill(0))
+      catMap.get(tx.categoryName)![idx] += tx.amount
+    }
+  })
+  return {
+    labels: months.map(m => m.label),
+    categories: Array.from(catMap.entries())
+      .map(([name, data]) => ({ name, data }))
+      .sort((a, b) => b.data.reduce((s, v) => s + v, 0) - a.data.reduce((s, v) => s + v, 0)),
+  }
+})
+
+let catTrendChart: Chart | null = null
+const catTrendCanvas = ref<HTMLCanvasElement | null>(null)
+
+function renderCatTrend() {
+  if (!catTrendCanvas.value) return
+  catTrendChart?.destroy()
+  const { labels, categories } = statsCatTrendData.value
+  if (categories.length === 0) { catTrendChart = null; return }
+  catTrendChart = new Chart(catTrendCanvas.value, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: categories.map((cat, i) => ({
+        label: cat.name,
+        data: cat.data,
+        borderColor: CHART_COLORS[i % CHART_COLORS.length],
+        backgroundColor: 'transparent',
+        borderDash: [5, 5],
+        borderWidth: 2,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        pointBackgroundColor: CHART_COLORS[i % CHART_COLORS.length],
+        tension: 0.3,
+      })),
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'top', labels: { font: { size: 10 }, boxWidth: 12, color: '#9CA3AF', padding: 8 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${(ctx.raw as number).toLocaleString()}원` } },
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: { callback: val => `${((val as number) / 10000).toFixed(0)}만`, font: { size: 10 }, color: '#9CA3AF' },
+          grid: { color: 'rgba(255,255,255,0.05)' },
+        },
+        x: { ticks: { font: { size: 11 }, color: '#9CA3AF' }, grid: { display: false } },
+      },
+    },
+  })
+}
+
 function renderDonut() {
   if (!donutCanvas.value) return
   donutChart?.destroy()
@@ -953,6 +1030,7 @@ async function renderStatsCharts() {
   await nextTick()
   renderDonut()
   renderTrend()
+  renderCatTrend()
 }
 
 watch(activePage, (page) => { if (page === 'stats') renderStatsCharts() })
@@ -961,6 +1039,7 @@ watch([mockYear, mockMonth, statsType], () => { if (activePage.value === 'stats'
 onUnmounted(() => {
   donutChart?.destroy()
   trendChart?.destroy()
+  catTrendChart?.destroy()
 })
 </script>
 
@@ -1296,10 +1375,25 @@ onUnmounted(() => {
         </div>
 
         <!-- 최근 6개월 추이 -->
-        <div class="px-4 pb-8">
+        <div class="px-4 pb-4">
           <div class="bg-gray-800 rounded-2xl p-4">
             <h3 class="text-sm font-semibold text-gray-100 mb-4">최근 6개월 추이</h3>
             <canvas ref="trendCanvas" style="max-height:200px"></canvas>
+          </div>
+        </div>
+
+        <!-- 카테고리별 지출 추이 (점선) -->
+        <div class="px-4 pb-8">
+          <div class="bg-gray-800 rounded-2xl p-4">
+            <div class="flex items-center gap-2 mb-1">
+              <h3 class="text-sm font-semibold text-gray-100">카테고리별 지출 추이</h3>
+              <span class="text-[10px] text-gray-500 bg-gray-700 px-1.5 py-0.5 rounded">지출 전용</span>
+            </div>
+            <p class="text-[11px] text-gray-400 mb-4">최근 6개월간 카테고리별 지출 흐름</p>
+            <div v-if="statsCatTrendData.categories.length === 0" class="py-8 text-center text-gray-400 text-sm">
+              지출 데이터가 없습니다
+            </div>
+            <canvas v-else ref="catTrendCanvas" style="max-height:220px"></canvas>
           </div>
         </div>
 
