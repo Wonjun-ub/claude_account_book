@@ -228,7 +228,7 @@ T30 (DB 마이그레이션 — 백엔드 작업의 전제)
 
 - 할부 등록 시 Transaction N건을 루프 내에서 개별 `CreateAsync` 호출 → 트랜잭션 원자성 없음. 규모가 커지면 단일 bulk insert로 개선 필요 (Medium)
 - `SummaryService.GetMonthlyAsync()`에서 `allTransactions`를 별도 쿼리로 조회 → 동일 기간에 대해 2번 DB 쿼리 발생. 추후 최적화 가능 (Medium)
-- 백엔드 dotnet test, API curl, Playwright 검증은 Docker 미실행으로 미수행. `docker compose up --build` 후 수동 검증 필요
+- 로컬 서버 미실행으로 자동 검증(API curl, Playwright) 미수행. 로컬 직접 실행 후 수동 검증 필요
 
 ### 수동 검증 남은 항목
 

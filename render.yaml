@@ -5,6 +5,7 @@ services:
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
+    branch: develop
     plan: free
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
@@ -12,7 +13,7 @@ services:
       - key: ConnectionStrings__DefaultConnection
         sync: false          # Render 대시보드에서 직접 입력
       - key: Cors__AllowedOrigins__0
-        sync: false          # 프론트엔드 URL 입력 (예: https://budget-tracker-web.onrender.com)
+        sync: false          # 프론트엔드 URL (예: https://budget-tracker-web.onrender.com)
 
   # ── 프론트엔드: Vue3 Static Site ──────────────────────────────────────────
   - type: web
@@ -20,6 +21,7 @@ services:
     runtime: static
     buildCommand: cd frontend && npm ci && npm run build:staging
     staticPublishPath: ./frontend/dist
+    branch: develop
     routes:
       - type: rewrite
         source: /*

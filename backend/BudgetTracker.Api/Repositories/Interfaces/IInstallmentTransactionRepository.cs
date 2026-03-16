@@ -7,6 +7,12 @@ public interface IInstallmentTransactionRepository
     Task<IEnumerable<InstallmentTransaction>> GetAllAsync();
     Task<InstallmentTransaction?> GetByIdAsync(int id);
     Task<InstallmentTransaction> CreateAsync(InstallmentTransaction installment);
+
+    // 원자적 생성: 원부 + N건 거래를 하나의 DB 트랜잭션으로 처리
+    Task<InstallmentTransaction> BatchCreateAsync(
+        InstallmentTransaction master,
+        IEnumerable<Transaction> transactionDrafts);
+
     Task DeleteAsync(InstallmentTransaction installment);
     Task<bool> CategoryExistsAsync(int categoryId);
     Task<bool> PaymentMethodExistsAsync(int paymentMethodId);

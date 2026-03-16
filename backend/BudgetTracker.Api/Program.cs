@@ -34,6 +34,7 @@ builder.Services.AddScoped<IPointBudgetRepository, PointBudgetRepository>();
 builder.Services.AddScoped<IRecurringRepository, RecurringRepository>();
 builder.Services.AddScoped<IInstallmentTransactionRepository, InstallmentTransactionRepository>();
 builder.Services.AddScoped<ISettingsRepository, SettingsRepository>();
+builder.Services.AddScoped<ISummaryRepository, SummaryRepository>();
 
 // ── Services ───────────────────────────────────────────────────────────────
 builder.Services.AddScoped<ITransactionService, TransactionService>();

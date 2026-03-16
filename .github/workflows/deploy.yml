@@ -1,106 +1,29 @@
-name: CD - 프로덕션 배포
+name: CD - 프로덕션 배포 (Render 자동 배포)
+
+# Render가 develop 브랜치를 감지하여 자동 배포하므로
+# 별도 GitHub Actions 배포 스텝은 필요하지 않습니다.
+#
+# 배포 흐름:
+#   develop push → Render 자동 감지
+#     ├─ backend: backend/Dockerfile 빌드 → 컨테이너 배포
+#     └─ frontend: npm run build:staging → 정적 파일 배포
+#
+# 배포 상태 확인: https://dashboard.render.com
+# render.yaml 참조
 
 on:
   push:
     branches:
-      - main
-
-env:
-  REGISTRY: ghcr.io
-  # TODO: 아래 이미지명을 프로젝트에 맞게 수정하세요
-  # 예시: BACKEND_IMAGE: ghcr.io/your-org/your-project-backend
-  BACKEND_IMAGE: ghcr.io/YOUR_GITHUB_ORG/YOUR_PROJECT-backend
-  FRONTEND_IMAGE: ghcr.io/YOUR_GITHUB_ORG/YOUR_PROJECT-frontend
-  NGINX_IMAGE: ghcr.io/YOUR_GITHUB_ORG/YOUR_PROJECT-nginx
+      - develop
 
 jobs:
-  build-and-push:
-    name: 이미지 빌드 & GHCR push
+  notify:
+    name: 배포 시작 확인
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
-    outputs:
-      image_tag: ${{ steps.meta.outputs.version }}
 
     steps:
-      - name: 코드 체크아웃
-        uses: actions/checkout@v4
-
-      - name: GHCR 로그인
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: 이미지 태그 메타데이터 생성
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.BACKEND_IMAGE }}
-          tags: |
-            type=sha,prefix=,format=short
-            type=raw,value=latest
-
-      # TODO: Dockerfile 경로를 프로젝트에 맞게 수정하세요
-      - name: 백엔드 이미지 빌드 & push
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: docker/backend/Dockerfile.prod
-          target: runtime
-          push: true
-          tags: |
-            ${{ env.BACKEND_IMAGE }}:latest
-            ${{ env.BACKEND_IMAGE }}:${{ steps.meta.outputs.version }}
-
-      - name: 프론트엔드 이미지 빌드 & push
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: docker/frontend/Dockerfile.prod
-          target: runtime
-          push: true
-          tags: |
-            ${{ env.FRONTEND_IMAGE }}:latest
-            ${{ env.FRONTEND_IMAGE }}:${{ steps.meta.outputs.version }}
-          build-args: |
-            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
-
-      - name: nginx 이미지 빌드 & push
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: docker/nginx/Dockerfile
-          push: true
-          tags: |
-            ${{ env.NGINX_IMAGE }}:latest
-            ${{ env.NGINX_IMAGE }}:${{ steps.meta.outputs.version }}
-
-  deploy:
-    name: 프로덕션 서버 배포
-    runs-on: ubuntu-latest
-    needs: build-and-push
-
-    steps:
-      - name: SSH 배포
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.LIGHTSAIL_HOST }}
-          username: ${{ secrets.LIGHTSAIL_USER }}
-          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          timeout: 60s
-          command_timeout: 10m
-          script: |
-            cd /opt/app
-            sudo curl -fsSL \
-              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.prod.yml \
-              -o docker-compose.prod.yml
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d
-            docker compose -f docker-compose.prod.yml exec -T backend alembic upgrade head
-            docker image prune -f
+      - name: 배포 트리거 확인
+        run: |
+          echo "develop 브랜치 push 감지 — Render 자동 배포 진행 중"
+          echo "커밋: ${{ github.sha }}"
+          echo "배포 대시보드: https://dashboard.render.com"

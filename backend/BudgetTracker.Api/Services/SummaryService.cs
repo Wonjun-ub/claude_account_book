@@ -1,25 +1,23 @@
-using BudgetTracker.Api.Data;
 using BudgetTracker.Api.DTOs.Responses;
 using BudgetTracker.Api.Helpers;
 using BudgetTracker.Api.Models.Enums;
 using BudgetTracker.Api.Repositories.Interfaces;
 using BudgetTracker.Api.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
 
 namespace BudgetTracker.Api.Services;
 
 public class SummaryService : ISummaryService
 {
-    private readonly BudgetTrackerDbContext _db;
+    private readonly ISummaryRepository _summaryRepo;
     private readonly IRecurringService _recurringService;
     private readonly ISettingsRepository _settingsRepo;
 
     public SummaryService(
-        BudgetTrackerDbContext db,
+        ISummaryRepository summaryRepo,
         IRecurringService recurringService,
         ISettingsRepository settingsRepo)
     {
-        _db = db;
+        _summaryRepo = summaryRepo;
         _recurringService = recurringService;
         _settingsRepo = settingsRepo;
     }
@@ -36,35 +34,24 @@ public class SummaryService : ISummaryService
 
         var (periodStart, periodEnd) = DateRangeHelper.GetMonthRange(year, month, monthStartDay);
 
-        // 해당 기간 거래 집계 (IsIncludedInTotal == true인 것만)
-        var transactions = await _db.Transactions
-            .Where(t => t.Date >= periodStart && t.Date <= periodEnd && t.IsIncludedInTotal)
-            .ToListAsync();
-
-        var incomeList = transactions.Where(t => t.Type == TransactionType.Income).ToList();
-        var expenseList = transactions.Where(t => t.Type == TransactionType.Expense).ToList();
+        // 합산 포함 거래 (수입/지출 합계)
+        var includedTx = await _summaryRepo.GetIncludedByPeriodAsync(periodStart, periodEnd);
+        var incomeList = includedTx.Where(t => t.Type == TransactionType.Income).ToList();
+        var expenseList = includedTx.Where(t => t.Type == TransactionType.Expense).ToList();
         decimal totalIncome = incomeList.Sum(t => t.Amount);
         decimal totalExpense = expenseList.Sum(t => t.Amount);
 
-        // 모든 거래 건수 (IsIncludedInTotal 무관)
-        var allTransactions = await _db.Transactions
-            .Where(t => t.Date >= periodStart && t.Date <= periodEnd)
-            .ToListAsync();
-        int incomeCount = allTransactions.Count(t => t.Type == TransactionType.Income);
-        int expenseCount = allTransactions.Count(t => t.Type == TransactionType.Expense);
+        // 전체 거래 건수 (IsIncludedInTotal 무관)
+        var allTx = await _summaryRepo.GetByPeriodAsync(periodStart, periodEnd);
+        int incomeCount = allTx.Count(t => t.Type == TransactionType.Income);
+        int expenseCount = allTx.Count(t => t.Type == TransactionType.Expense);
 
         // 전월 대비 지출 변화 계산
         var prevMonth = month == 1 ? 12 : month - 1;
         var prevYear = month == 1 ? year - 1 : year;
         var (prevStart, prevEnd) = DateRangeHelper.GetMonthRange(prevYear, prevMonth, monthStartDay);
+        decimal prevExpense = await _summaryRepo.GetExpenseSumAsync(prevStart, prevEnd);
 
-        decimal prevExpense = await _db.Transactions
-            .Where(t => t.Date >= prevStart && t.Date <= prevEnd
-                     && t.Type == TransactionType.Expense
-                     && t.IsIncludedInTotal)
-            .SumAsync(t => t.Amount);
-
-        // 결과 반환
         return new MonthlySummaryResponse
         {
             Year = year,
@@ -83,23 +70,18 @@ public class SummaryService : ISummaryService
     // 카테고리별 집계
     public async Task<IEnumerable<CategorySummaryResponse>> GetByCategoryAsync(int year, int month, string? type)
     {
-        // 사용자 설정 및 기간 계산
         var settings = await _settingsRepo.GetAsync();
         int monthStartDay = settings?.MonthStartDay ?? 1;
 
         var (periodStart, periodEnd) = DateRangeHelper.GetMonthRange(year, month, monthStartDay);
 
-        // 기간 내 거래 쿼리 구성
-        var query = _db.Transactions
-            .Include(t => t.Category)
-            .Where(t => t.Date >= periodStart && t.Date <= periodEnd && t.IsIncludedInTotal);
-
-        // type 필터: Expense 또는 Income
+        TransactionType? typeFilter = null;
         if (!string.IsNullOrEmpty(type) && Enum.TryParse<TransactionType>(type, true, out var txType))
-            query = query.Where(t => t.Type == txType);
+            typeFilter = txType;
 
-        // 카테고리별 집계
-        var grouped = await query
+        var transactions = await _summaryRepo.GetIncludedWithCategoryByPeriodAsync(periodStart, periodEnd, typeFilter);
+
+        var grouped = transactions
             .GroupBy(t => new { t.CategoryId, t.Category.Name, t.Category.Type })
             .Select(g => new
             {
@@ -108,11 +90,10 @@ public class SummaryService : ISummaryService
                 CategoryType = g.Key.Type.ToString(),
                 Amount = g.Sum(t => t.Amount)
             })
-            .ToListAsync();
+            .ToList();
 
         decimal total = grouped.Sum(g => g.Amount);
 
-        // 비율 계산 및 정렬
         return grouped
             .OrderByDescending(g => g.Amount)
             .Select(g => new CategorySummaryResponse
@@ -129,18 +110,15 @@ public class SummaryService : ISummaryService
     // 월별 추이
     public async Task<IEnumerable<MonthlyTrendResponse>> GetTrendAsync(int months)
     {
-        // 유효성 검사
         if (months < 1 || months > 24)
             months = 6;
 
-        // 사용자 설정 조회
         var settings = await _settingsRepo.GetAsync();
         int monthStartDay = settings?.MonthStartDay ?? 1;
 
         var now = DateTime.UtcNow;
         var result = new List<MonthlyTrendResponse>();
 
-        // 월별 집계
         for (int i = months - 1; i >= 0; i--)
         {
             var targetDate = now.AddMonths(-i);
@@ -148,10 +126,7 @@ public class SummaryService : ISummaryService
             int targetMonth = targetDate.Month;
 
             var (periodStart, periodEnd) = DateRangeHelper.GetMonthRange(targetYear, targetMonth, monthStartDay);
-
-            var transactions = await _db.Transactions
-                .Where(t => t.Date >= periodStart && t.Date <= periodEnd && t.IsIncludedInTotal)
-                .ToListAsync();
+            var transactions = await _summaryRepo.GetIncludedByPeriodAsync(periodStart, periodEnd);
 
             result.Add(new MonthlyTrendResponse
             {
