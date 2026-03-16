@@ -956,7 +956,7 @@ function renderCatTrend() {
       responsive: true,
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { position: 'top', labels: { font: { size: 10 }, boxWidth: 12, color: '#9CA3AF', padding: 8 } },
+        legend: { display: false },
         tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${(ctx.raw as number).toLocaleString()}원` } },
       },
       scales: {
@@ -1393,7 +1393,16 @@ onUnmounted(() => {
             <div v-if="statsCatTrendData.categories.length === 0" class="py-8 text-center text-gray-400 text-sm">
               지출 데이터가 없습니다
             </div>
-            <canvas v-else ref="catTrendCanvas" style="max-height:220px"></canvas>
+            <template v-else>
+              <canvas ref="catTrendCanvas" style="max-height:220px"></canvas>
+              <!-- 커스텀 범례 (내장 범례 대체 — 줄바꿈 지원) -->
+              <div class="flex flex-wrap gap-x-3 gap-y-2 mt-3">
+                <div v-for="(cat, i) in statsCatTrendData.categories" :key="cat.name" class="flex items-center gap-1.5">
+                  <span class="w-5 h-0 border-t-2 border-dashed flex-shrink-0" :style="`border-color:${CHART_COLORS[i % CHART_COLORS.length]}`"></span>
+                  <span class="text-xs text-gray-300">{{ cat.name }}</span>
+                </div>
+              </div>
+            </template>
           </div>
         </div>
 
