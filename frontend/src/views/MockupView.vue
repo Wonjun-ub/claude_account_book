@@ -18,7 +18,19 @@ import dayjs from 'dayjs'
 import { calcMockInstallment } from '@/mocks/installment.mock'
 import { getMonthPeriod } from '@/utils/monthPeriod'
 import UpcomingWidget from '@/components/UpcomingWidget.vue'
-import type { CardFilter, CardBillingSummary } from '@/components/UpcomingWidget.vue'
+
+// UpcomingWidget과 공유하는 타입 — SFC export 호환성 문제로 여기서 직접 정의
+interface CardFilter {
+  id: number
+  name: string
+  periodFrom: string
+  periodTo: string
+}
+interface CardBillingSummary extends CardFilter {
+  dueDay: number
+  dueDate: string
+  amount: number
+}
 
 const activePage = ref('home')
 
