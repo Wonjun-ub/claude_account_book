@@ -1,6 +1,6 @@
 # BudgetTracker — 제품 요구사항 문서 (PRD)
 
-> **버전**: 1.2 | **기준일**: 2026-03-15 | **범위**: MVP (Sprint 1~3+)
+> **버전**: 1.3 | **기준일**: 2026-03-16 | **범위**: MVP (Sprint 1~3+)
 
 ---
 
@@ -351,6 +351,10 @@ Recurring_Masters (반복 원부)     — 반복 설정값 저장, Transactions�
 | UI | 모바일 우선 (Mobile First), 최대 너비 512px |
 | 반응형 | 모바일 / 태블릿 / PC 모두 대응 |
 | 데이터 무결성 | 포인트 차감/복구 원자성 보장 (단일 SaveChanges) |
+| 데이터 무결성 | 반복 거래 중복 생성 방지: DB UNIQUE 제약으로 Race Condition 원천 차단 |
+| 데이터 무결성 | 포인트 잔액 음수 방지: DB CHECK 제약으로 Fail-fast 처리 |
+| 타임존 | `created_at` 등 시각 컬럼은 `timestamptz` 사용 (UTC 저장, 표시 시 KST 변환) |
+| 타임존 | 거래일(`date`) 컬럼은 순수 날짜(`date` 타입)로 저장 — 클라이언트가 로컬 날짜(`YYYY-MM-DD`)를 그대로 전송하며 서버는 타임존 변환 없이 저장. 집계·필터 계산도 date 단위로만 처리하여 UTC/KST 오프셋 버그 원천 차단 |
 | 보안 | MVP: 인증 없음 (단일 사용자 가정) |
 | 배포 | Render 자동 배포 (main 브랜치 push 시) |
 
@@ -406,7 +410,7 @@ erDiagram
         int     id               PK
         string  name
         int     total_amount
-        int     remaining_amount
+        int     remaining_amount "CHECK >= 0 — 음수 잔액 방지"
     }
 
     PaymentMethods {
@@ -447,18 +451,19 @@ erDiagram
 
     %% ── 거래 내역 (핵심 테이블) ───────────────────────────────────────────────
     Transactions {
-        int      id                    PK
-        int      amount
-        date     date
-        string   type                  "Income | Expense"
-        bool     is_included_in_total  "합산 포함 여부"
-        string   memo                  "nullable"
-        int      category_id           FK
-        int      payment_method_id     FK
-        int      installment_master_id FK "nullable — 할부 거래만"
-        int      installment_sequence  "nullable — 할부 회차 (1-based)"
-        int      recurring_master_id   FK "nullable — 반복으로 생성된 경우"
-        datetime created_at
+        int         id                       PK
+        int         amount
+        date        date                     "순수 날짜 — 타임존 변환 없이 저장"
+        string      type                     "Income | Expense"
+        bool        is_included_in_total     "합산 포함 여부"
+        string      memo                     "nullable"
+        int         category_id              FK
+        int         payment_method_id        FK
+        int         installment_master_id    FK "nullable — 할부 거래만"
+        int         installment_sequence     "nullable — 할부 회차 (1-based)"
+        int         recurring_master_id      FK "nullable — 반복으로 생성된 경우"
+        varchar7    recurring_target_month   "nullable — 반복 대상 연월 'YYYY-MM'"
+        timestamptz created_at               "UTC 저장"
     }
 
     %% ── 관계 정의 ────────────────────────────────────────────────────────────
@@ -496,3 +501,49 @@ erDiagram
 | `Installment_Masters` | 삭제 시 연결된 모든 Transactions CASCADE 삭제 |
 | `Recurring_Masters` | 삭제 시 기존 생성 Transactions 유지, 이후 미생성 회차만 차단 |
 | `Transactions` | `installment_master_id`와 `recurring_master_id` 동시 NOT NULL 불가 |
+| `Transactions` | **UNIQUE (`recurring_master_id`, `recurring_target_month`)** — Race Condition 중복 생성 원천 차단 (v1.3) |
+| `PointBudgets` | **CHECK (`remaining_amount >= 0`)** — 동시 결제 시 음수 잔액 Fail-fast 차단 (v1.3) |
+| `Transactions` | `created_at` → `timestamptz` (UTC 저장) / `date` → `date` 타입 (순수 날짜, 타임존 변환 없음) (v1.3) |
+
+### 데이터 정합성 제약 조건 상세 (v1.3)
+
+#### 1. 반복 거래 중복 생성 방지 (Idempotency)
+
+On-demand 방식에서 월 조회 API가 동시에 호출될 경우 `ApplyRecurringTransactionsAsync`가 중복 실행될 수 있다. 애플리케이션 레벨의 중복 체크만으로는 Race Condition을 완전히 막을 수 없으므로, DB 레벨에서 최후 방어선을 제공한다.
+
+```
+Transactions 에 recurring_target_month varchar(7) 컬럼 추가
+  → 반복 거래 생성 시 'YYYY-MM' 형식으로 대상 연월 기록
+
+UNIQUE INDEX uix_recurring_target_month
+  ON Transactions (RecurringTransactionId, RecurringTargetMonth)
+  WHERE RecurringTransactionId IS NOT NULL
+    AND RecurringTargetMonth IS NOT NULL
+  → 동일 원부 + 동일 연월 조합으로 두 번째 INSERT 시 즉시 unique_violation 발생
+```
+
+**백엔드 처리 원칙**: unique_violation(PostgreSQL 오류 코드 23505) 발생 시 이미 생성된 것으로 간주하고 조용히 무시(SKIP). 오류를 상위로 전파하지 않는다.
+
+---
+
+#### 2. 포인트 잔액 음수 방지 (Fail-fast)
+
+애플리케이션 레벨 검증(잔액 충분 여부 확인 후 차감)이 1차 방어지만, 동시 결제나 버그로 잔액이 음수로 떨어지는 것을 DB가 최종 차단한다.
+
+```
+PointBudgets 에 CHECK (RemainingAmount >= 0) 추가
+  → 잔액 부족 상태로 UPDATE 시 check_violation (23514) 즉시 발생
+  → 잔액 복구(RECOVER) → 잔액 검증 → 잔액 차감(DEDUCT) 순서 강제
+```
+
+---
+
+#### 3. 날짜/타임존 명확화
+
+| 컬럼 | 타입 | 원칙 |
+|------|------|------|
+| `created_at` | `timestamptz` | DB에 UTC로 저장, 표시 시 KST(+09:00) 변환 |
+| `date` (거래일) | `date` | 클라이언트가 `YYYY-MM-DD` 로컬 날짜를 그대로 전송. 서버는 타임존 변환 없이 저장 및 필터링 |
+| `start_date`, `end_date` | `date` | 동일 원칙 |
+
+**KST 자정 근처 버그 시나리오**: 23:50 KST에 입력한 거래를 `timestamptz`로 저장하면 UTC 기준 14:50이 되어 날짜가 달라질 수 있다. `date` 타입 사용으로 이 문제를 근본 차단한다.
