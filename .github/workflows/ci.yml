@@ -21,10 +21,13 @@ jobs:
           dotnet-version: "8.0.x"
 
       - name: 의존성 복원
-        run: dotnet restore backend/BudgetTracker.Api/BudgetTracker.Api.csproj
+        run: dotnet restore backend/BudgetTracker.sln
 
       - name: 빌드
-        run: dotnet build backend/BudgetTracker.Api/BudgetTracker.Api.csproj --no-restore --configuration Release
+        run: dotnet build backend/BudgetTracker.sln --no-restore --configuration Release
+
+      - name: 단위 테스트
+        run: dotnet test backend/BudgetTracker.sln --no-restore --configuration Release --verbosity normal
 
   frontend:
     name: 프론트엔드 빌드 및 테스트
