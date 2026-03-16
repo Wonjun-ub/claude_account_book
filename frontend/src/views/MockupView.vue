@@ -6,7 +6,8 @@ import { ref, computed, watch, onMounted } from 'vue'
 import dayjs from 'dayjs'
 import { calcMockInstallment } from '@/mocks/installment.mock'
 import { getMonthPeriod } from '@/utils/monthPeriod'
-import UpcomingWidget, { type CardFilter } from '@/components/UpcomingWidget.vue'
+import UpcomingWidget from '@/components/UpcomingWidget.vue'
+import type { CardFilter } from '@/components/UpcomingWidget.vue'
 
 const activePage = ref('home')
 
@@ -707,13 +708,43 @@ const settingPaymentMethods = ref<{ id: number; name: string; type: 'Cash' | 'Ca
           <input v-model="txSearch" type="text" placeholder="메모/카테고리 검색..." class="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400" />
         </div>
 
-        <!-- 예정된 지출 통합 위젯 (Sprint 6 Step 1) — 반복 예정 + 카드 결제 예정 -->
-        <UpcomingWidget
-          :recurring-items="recurringPending"
-          :pending-summary="pendingSummary"
-          @filter-card="activeCardFilter = $event"
-          @recurring-delete="(id) => { const m = recurringPending.find(r => r.id === id); if (m) onPendingDeleteClick(m) }"
-        />
+        <!-- 반복 예정 배너 -->
+        <div v-if="recurringPending.length > 0" class="flex-shrink-0 bg-teal-50 border-b border-teal-100">
+          <button @click="showPendingBanner = !showPendingBanner" class="w-full px-4 py-2.5 flex items-center justify-between">
+            <div class="flex items-center gap-2 min-w-0">
+              <svg class="w-3.5 h-3.5 text-teal-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              <span class="text-xs font-semibold text-teal-700">반복 예정 {{ recurringPending.length }}건</span>
+              <span class="text-xs text-teal-600 truncate">
+                <template v-if="pendingSummary.income > 0">수입 +{{ pendingSummary.income.toLocaleString() }}원</template>
+                <template v-if="pendingSummary.income > 0 && pendingSummary.expense > 0"> · </template>
+                <template v-if="pendingSummary.expense > 0">지출 -{{ pendingSummary.expense.toLocaleString() }}원</template>
+              </span>
+            </div>
+            <svg :class="showPendingBanner ? 'rotate-180' : ''" class="w-4 h-4 text-teal-500 flex-shrink-0 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div v-if="showPendingBanner" class="px-4 pb-3 space-y-2">
+            <div v-for="master in recurringPending" :key="master.id"
+              class="flex items-center justify-between bg-white rounded-xl px-3 py-2.5 border border-teal-100">
+              <div class="flex items-center gap-2 min-w-0">
+                <div class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="master.type === 'Income' ? 'bg-blue-400' : 'bg-red-400'"/>
+                <span class="text-sm text-gray-700 truncate">{{ master.categoryName }}</span>
+                <span class="text-xs text-gray-400 flex-shrink-0">매월 {{ master.dayOfMonth }}일</span>
+                <span v-if="master.memo" class="text-xs text-gray-400 truncate">· {{ master.memo }}</span>
+              </div>
+              <div class="flex items-center gap-1 ml-2 flex-shrink-0">
+                <span :class="master.type === 'Income' ? 'text-blue-600' : 'text-red-500'" class="text-sm font-semibold">
+                  {{ master.type === 'Income' ? '+' : '-' }}{{ master.amount.toLocaleString() }}원
+                </span>
+                <button @click="onPendingDeleteClick(master)" class="p-1 text-gray-300 hover:text-red-400">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 카드 결제 예정 배너 (Sprint 6 Step 1) -->
+        <UpcomingWidget @filter-card="activeCardFilter = $event" />
 
         <!-- 카드 필터 칩 (드릴다운 활성 시) -->
         <div v-if="activeCardFilter" class="flex-shrink-0 px-4 py-2 bg-white border-b border-gray-100 flex items-center gap-2">

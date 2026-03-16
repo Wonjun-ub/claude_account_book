@@ -1,19 +1,10 @@
 <script setup lang="ts">
-// Sprint 6 Step 1 목업 — 예정된 지출 통합 위젯 (반복 예정 + 카드 결제 예정)
-// Step 3에서 실제 API(recurring pending + card billing summary)로 교체 예정
+// Sprint 6 Step 1 목업 — 카드 결제 예정 배너 (반복 예정 배너 아래에 독립 표시)
+// Step 3에서 실제 API(card billing summary)로 교체 예정
 
 import { ref, computed } from 'vue'
 import dayjs from 'dayjs'
 import { mockCardBillings, type MockCardBilling } from '@/mocks/upcoming.mock'
-
-interface RecurringItem {
-  id: number
-  categoryName: string
-  type: 'Income' | 'Expense'
-  amount: number
-  dayOfMonth: number
-  memo?: string
-}
 
 export interface CardFilter {
   id: number
@@ -22,28 +13,14 @@ export interface CardFilter {
   periodTo: string
 }
 
-const props = defineProps<{
-  recurringItems: RecurringItem[]
-  pendingSummary: { income: number; expense: number }
-}>()
-
 const emit = defineEmits<{
   'filter-card': [filter: CardFilter | null]
-  'recurring-delete': [id: number]
 }>()
 
 const isExpanded = ref(false)
 
 const cardTotal = computed(() =>
   mockCardBillings.reduce((s, c) => s + c.amount, 0)
-)
-
-const totalCount = computed(() =>
-  props.recurringItems.length + mockCardBillings.length
-)
-
-const totalExpense = computed(() =>
-  props.pendingSummary.expense + cardTotal.value
 )
 
 function calcDDay(dueDate: string): string {
@@ -61,10 +38,6 @@ function dDayClass(dueDate: string): string {
   return 'bg-gray-100 text-gray-600'
 }
 
-function periodLabel(card: MockCardBilling): string {
-  return `${dayjs(card.periodFrom).format('M/D')}~${dayjs(card.periodTo).format('M/D')}`
-}
-
 function selectCard(card: MockCardBilling) {
   emit('filter-card', {
     id: card.id,
@@ -77,29 +50,24 @@ function selectCard(card: MockCardBilling) {
 </script>
 
 <template>
-  <div class="flex-shrink-0 bg-amber-50 border-b border-amber-100">
+  <div class="flex-shrink-0 bg-blue-50 border-b border-blue-100">
     <!-- 아코디언 헤더 -->
     <button
       class="w-full px-4 py-2.5 flex items-center justify-between"
       @click="isExpanded = !isExpanded"
     >
       <div class="flex items-center gap-2 min-w-0">
-        <!-- 캘린더 아이콘 -->
-        <svg class="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-3.5 h-3.5 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
         </svg>
-        <span class="text-xs font-semibold text-amber-800">예정된 지출</span>
-        <span class="text-xs text-amber-600 flex-shrink-0">{{ totalCount }}건</span>
-        <span v-if="totalExpense > 0" class="text-xs font-medium text-red-500 flex-shrink-0">
-          -{{ totalExpense.toLocaleString() }}원
-        </span>
-        <span v-if="pendingSummary.income > 0" class="text-xs text-blue-500 flex-shrink-0">
-          (+{{ pendingSummary.income.toLocaleString() }})
+        <span class="text-xs font-semibold text-blue-700">카드 결제 예정 {{ mockCardBillings.length }}건</span>
+        <span class="text-xs text-blue-600 truncate">
+          총 {{ cardTotal.toLocaleString() }}원
         </span>
       </div>
       <svg
-        class="w-4 h-4 text-amber-500 flex-shrink-0 transition-transform duration-200"
+        class="w-4 h-4 text-blue-400 flex-shrink-0 transition-transform duration-200"
         :class="isExpanded ? 'rotate-180' : ''"
         fill="none" stroke="currentColor" viewBox="0 0 24 24"
       >
@@ -107,51 +75,16 @@ function selectCard(card: MockCardBilling) {
       </svg>
     </button>
 
-    <!-- 펼쳐진 내용 — 반복 예정 + 카드 결제 예정 flat list -->
-    <div v-if="isExpanded" class="px-3 pb-3 space-y-1.5">
-
-      <!-- 반복 예정 rows -->
-      <div
-        v-for="item in recurringItems"
-        :key="`r-${item.id}`"
-        class="flex items-center justify-between bg-white rounded-xl px-3 py-2.5 border border-amber-100"
-      >
-        <div class="flex items-center gap-2 min-w-0">
-          <div
-            class="w-1.5 h-1.5 rounded-full flex-shrink-0"
-            :class="item.type === 'Income' ? 'bg-blue-400' : 'bg-red-400'"
-          />
-          <span class="text-sm text-gray-700 truncate">{{ item.categoryName }}</span>
-          <span class="text-xs text-gray-400 flex-shrink-0">매월 {{ item.dayOfMonth }}일</span>
-          <span v-if="item.memo" class="text-xs text-gray-400 truncate">· {{ item.memo }}</span>
-        </div>
-        <div class="flex items-center gap-2 ml-2 flex-shrink-0">
-          <span
-            class="text-sm font-semibold"
-            :class="item.type === 'Income' ? 'text-blue-600' : 'text-red-500'"
-          >
-            {{ item.type === 'Income' ? '+' : '-' }}{{ item.amount.toLocaleString() }}원
-          </span>
-          <button class="p-0.5 text-gray-300 hover:text-red-400" @click.stop="emit('recurring-delete', item.id)">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      <!-- 카드 결제 예정 rows -->
+    <!-- 카드 목록 -->
+    <div v-if="isExpanded" class="px-4 pb-3 space-y-2">
       <button
         v-for="card in mockCardBillings"
-        :key="`c-${card.id}`"
-        class="w-full flex items-center justify-between bg-white rounded-xl px-3 py-2.5 border border-amber-100 text-left active:bg-amber-50 transition-colors"
+        :key="card.id"
+        class="w-full flex items-center justify-between bg-white rounded-xl px-3 py-2.5 border border-blue-100 text-left active:bg-blue-50 transition-colors"
         @click="selectCard(card)"
       >
         <div class="flex items-center gap-2 min-w-0">
-          <svg class="w-4 h-4 text-blue-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-          </svg>
+          <div class="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
           <span class="text-sm text-gray-700 truncate">{{ card.name }}</span>
           <span class="text-xs text-gray-400 flex-shrink-0">결제일 {{ card.dueDay }}일</span>
           <span
@@ -163,12 +96,11 @@ function selectCard(card: MockCardBilling) {
           <span class="text-sm font-semibold text-red-500">
             -{{ card.amount.toLocaleString() }}원
           </span>
-          <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-3.5 h-3.5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
           </svg>
         </div>
       </button>
-
     </div>
   </div>
 </template>
