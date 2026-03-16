@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import dayjs from 'dayjs'
 import type { Transaction } from '@/types'
+import { useDateFormat } from '@/composables/useDateFormat'
 
 const props = defineProps<{
   type: 'installment' | 'recurring'
@@ -13,6 +13,8 @@ const emit = defineEmits<{
   deleteSingle: []
   close: []
 }>()
+
+const { formatYearMonth } = useDateFormat()
 </script>
 
 <template>
@@ -87,7 +89,7 @@ const emit = defineEmits<{
           >
             이후 삭제
             <span class="block text-xs font-normal text-red-400 mt-0.5">
-              {{ dayjs(transaction.date).format('YYYY년 MM월') }}부터 이후 거래 삭제 + 반복 중단
+              {{ formatYearMonth(transaction.date) }}부터 이후 거래 삭제 + 반복 중단
             </span>
           </button>
           <button

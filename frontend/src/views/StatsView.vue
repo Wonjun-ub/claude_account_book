@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import {
   Chart, ArcElement, Tooltip, Legend,
   CategoryScale, LinearScale,
@@ -178,7 +179,7 @@ onMounted(loadData)
 
     <!-- 스크롤 가능한 콘텐츠 -->
     <div class="flex-1 overflow-y-auto">
-      <div v-if="loading" class="py-20 text-center text-gray-400 text-sm">불러오는 중...</div>
+      <LoadingSpinner v-if="loading" />
 
       <template v-else>
         <!-- 카테고리별 지출 도넛 차트 -->

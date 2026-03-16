@@ -3,13 +3,18 @@ import { ref, computed, watch, onMounted } from 'vue'
 import dayjs from 'dayjs'
 import { useAppStore } from '@/stores/app'
 import { useDialog } from '@/composables/useDialog'
+import { useDateFormat } from '@/composables/useDateFormat'
 import { transactionsApi, summaryApi, recurringApi, installmentApi } from '@/api'
 import type { Transaction, MonthlySummary, RecurringTransaction } from '@/types'
 import TransactionModal from '@/components/TransactionModal.vue'
 import DeleteOptionSheet from '@/components/DeleteOptionSheet.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import EmptyState from '@/components/EmptyState.vue'
+import TransactionItem from '@/components/TransactionItem.vue'
 
 const store = useAppStore()
 const { showConfirm, showAlert } = useDialog()
+const { formatDate } = useDateFormat()
 
 const transactions = ref<Transaction[]>([])
 const summary = ref<MonthlySummary | null>(null)
@@ -231,15 +236,6 @@ async function handleRecurringDelete(mode: 'all' | 'fromHere' | 'single') {
   }
 }
 
-function formatAmount(amount: number, type: string) {
-  const sign = type === 'Income' ? '+' : '-'
-  return `${sign}${amount.toLocaleString()}원`
-}
-
-function formatDate(dateStr: string) {
-  return dayjs(dateStr).format('MM/DD (ddd)')
-}
-
 function groupByDate(txs: Transaction[]) {
   const map = new Map<string, Transaction[]>()
 
@@ -386,10 +382,8 @@ function groupByDate(txs: Transaction[]) {
 
     <!-- ── 스크롤 가능한 거래 목록 ── -->
     <div class="flex-1 overflow-y-auto px-4 py-2">
-      <div v-if="loadingTx" class="py-10 text-center text-gray-400 text-sm">불러오는 중...</div>
-      <div v-else-if="filteredTransactions.length === 0" class="py-10 text-center text-gray-400 text-sm">
-        거래 내역이 없습니다
-      </div>
+      <LoadingSpinner v-if="loadingTx" />
+      <EmptyState v-else-if="filteredTransactions.length === 0" message="거래 내역이 없습니다" />
 
       <template v-else>
         <div v-for="[date, txs] in groupByDate(filteredTransactions)" :key="date" class="mb-4">
@@ -405,48 +399,13 @@ function groupByDate(txs: Transaction[]) {
             </span>
           </div>
 
-          <div
+          <TransactionItem
             v-for="tx in txs"
             :key="tx.id"
-            data-testid="transaction-item"
-            class="bg-white rounded-xl p-3 mb-2 flex items-center shadow-sm cursor-pointer active:bg-gray-50"
-            :class="!tx.isIncludedInTotal ? 'opacity-50' : ''"
-            @click="openEdit(tx)"
-          >
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-1.5 flex-wrap">
-                <span class="text-sm font-medium truncate">{{ getCategoryName(tx.categoryId, tx.categoryName) }}</span>
-                <span v-if="!tx.isIncludedInTotal" class="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">제외</span>
-                <!-- 할부 뱃지 -->
-                <span
-                  v-if="tx.installmentTransactionId"
-                  class="text-xs bg-orange-50 text-orange-500 px-1.5 py-0.5 rounded"
-                >할부 {{ tx.installmentSequence }}회</span>
-                <!-- 반복 뱃지 -->
-                <span
-                  v-else-if="tx.recurringTransactionId"
-                  class="text-xs bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded"
-                >반복</span>
-              </div>
-              <div class="text-xs text-gray-400 mt-0.5">
-                <!-- 지출만 결제수단 표시 -->
-                <template v-if="tx.type === 'Expense'">
-                  {{ tx.paymentMethodName }}<span v-if="tx.memo"> · {{ tx.memo }}</span>
-                </template>
-                <span v-else-if="tx.memo">{{ tx.memo }}</span>
-              </div>
-            </div>
-            <div class="flex items-center gap-2">
-              <span :class="tx.type === 'Income' ? 'text-blue-600' : 'text-red-500'" class="font-semibold text-sm">
-                {{ formatAmount(tx.amount, tx.type) }}
-              </span>
-              <button @click.stop="onDeleteClick(tx)" class="text-gray-300 hover:text-red-400 p-1">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
+            :transaction="tx"
+            @edit="openEdit"
+            @delete="onDeleteClick"
+          />
         </div>
       </template>
     </div>

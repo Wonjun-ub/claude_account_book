@@ -226,7 +226,7 @@ async function save() {
 
 <template>
   <!-- 배경 오버레이 -->
-  <div class="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center px-4" @click.self="emit('close')">
+  <div class="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center px-4" @click.self="emit('close')">
     <div class="bg-white rounded-2xl w-full max-w-lg flex flex-col" style="max-height: 90dvh">
       <!-- 헤더 (고정) -->
       <div class="flex-shrink-0 flex items-center justify-between px-4 py-4 border-b border-gray-100">
