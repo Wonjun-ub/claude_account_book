@@ -208,7 +208,7 @@
 | T22-mock | 할부 등록 목업 | ✅ | 목업 | 인라인 할부 토글 + 개월수 입력 + 미리보기 + mock 저장 |
 | T23-mock | 할부 수정/삭제 목업 | ✅ | 목업 | 클릭→수정 모달(할부 UI), X→3가지 삭제 옵션 bottom sheet |
 | T25-mock | 반복 거래 등록/삭제/예정 배너 목업 | ✅ | 목업 | 부가 정보 토글, 예정 배너, 3가지 삭제 옵션 bottom sheet |
-| T24-mock | 카드 결제 현황 탭 목업 | ⬜ | 목업 | CardBillingView + 2슬롯 + 드릴다운 (mock 데이터) |
+| T24-mock | 카드 결제 현황 탭 목업 | 🔄 Sprint 6 Step 1 | 목업 | CardBillingView + 2슬롯 + 드릴다운 (mock 데이터) — 2026-03-16 Sprint 6 Step 1로 이관 완료 |
 
 > 통계/설정 화면 목업은 가계부(홈) 화면 완성 후 별도 스프린트에서 처리
 
@@ -236,20 +236,22 @@
 
 ---
 
-## Phase 6 — Sprint 6: 카드 결제 현황 실제 구현 ⬜ 예정
+## Phase 6 — Sprint 6: 카드 결제 현황 🔄 Step 1 완료 / Step 2 승인 대기
 
-**유형**: 구현
-**목표**: PaymentMethods 정산일/결제일 컬럼 추가 + 2슬롯 청구 현황 API + 프론트 연동
-**브랜치**: `sprint6`
-**DB 스키마 변경**: `PaymentMethods`에 `BillingCutoffDay`, `PaymentDueDay` 컬럼 추가
-**선행 조건**: Sprint 4 완료 + 카드 결제 현황 UI 요구사항 확정
+**유형**: 3단계 (목업 → 승인 → 구현)
+**목표**: 카드별 정산일/결제일 기준 2슬롯 청구 현황 탭 구현
+**브랜치**: `sprint6` (Step 3 시작 시 생성)
+**DB 스키마 변경**: `PaymentMethods`에 `BillingCutoffDay`, `PaymentDueDay` 컬럼 추가 (Step 3)
+**선행 조건**: Sprint 5 완료 ✅
 
 | ID | 태스크 | 상태 | 유형 | 설명 |
 |----|--------|------|------|------|
-| T34 | DB 모델 및 마이그레이션 | ⬜ | 구현 | PaymentMethod에 정산일/결제일 컬럼 추가 |
-| T35 | 카드 청구 설정 API | ⬜ | 구현 | PUT /api/payment-methods/{id} 확장 |
-| T36 | 카드 결제 현황 백엔드 API | ⬜ | 구현 | GET /api/card-billing/summary (2슬롯 계산) + 드릴다운 |
-| T37 | 프론트엔드 mock → 실제 API 교체 | ⬜ | 구현 | CardBillingView + SettingsView 연동 |
+| Step 1 | 카드 결제 현황 탭 목업 | ✅ 완료 (2026-03-16) | 목업 | CardBillingView + 2슬롯 + 드릴다운 (mock 데이터) — App.vue 4탭 구성 포함 |
+| Step 2 | UI/UX 확정 | ⬜ 승인 대기 | 승인 | 로컬 `/card-billing` 확인 후 "진행해" 승인 |
+| T34 | DB 모델 및 마이그레이션 | ⬜ Step 2 후 | 구현 | PaymentMethod에 정산일/결제일 컬럼 추가 |
+| T35 | 카드 청구 설정 API | ⬜ Step 2 후 | 구현 | PUT /api/payment-methods/{id} 확장 |
+| T36 | 카드 결제 현황 백엔드 API | ⬜ Step 2 후 | 구현 | GET /api/card-billing/summary (2슬롯 계산) + 드릴다운 |
+| T37 | 프론트엔드 mock → 실제 API 교체 | ⬜ Step 2 후 | 구현 | CardBillingView + SettingsView 연동 |
 
 ---
 
@@ -389,4 +391,4 @@
 | Sprint 3 | 버그 수정 + 목업 | ✅ 완료 | monthStartDay 버그 수정 + 거래 유형 탭 UI 목업 (T20~T21) | 2026-03-15 |
 | Sprint 4 | 목업 | ✅ 완료 | 할부 CRUD 목업 (T22-mock, T23-mock) + 반복 거래 CRUD 목업 (T25-mock) + Vitest 테스트 환경 구축 (54 케이스) | 2026-03-15 |
 | Sprint 5 | 구현 | ✅ 완료 | 할부/반복 거래 실서비스 이관 (T30~T33) + RecurringSkips + MonthlySummary 건수 추가 | 2026-03-15 |
-| Sprint 6 | 구현 | ⬜ 예정 | 카드 결제 현황 실제 구현 (T34~T37) | — |
+| Sprint 6 | 3단계 | 🔄 진행 중 | Step 1 목업 완료 (2026-03-16) — Step 2 승인 대기 → Step 3: 카드 결제 현황 실제 구현 (T34~T37) | — |

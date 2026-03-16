@@ -130,7 +130,7 @@ MockupView.vue 내 상태:
 
 ### T24-mock — 카드 결제 현황 탭 목업
 
-**유형**: 프론트엔드 목업 | **우선순위**: 최상 | **상태**: ⬜ 예정
+**유형**: 프론트엔드 목업 | **우선순위**: 최상 | **상태**: 🔄 Sprint 6 Step 1로 이관 (2026-03-16)
 
 **수정 대상 파일**
 - Create: `frontend/src/views/CardBillingView.vue`
@@ -239,8 +239,7 @@ Sprint 5 백엔드 설계 시 반영 필요:
 - ✅ T23-mock: 할부 거래 클릭 → 수정 모달(할부 UI) → 저장 / X 버튼 → 삭제 옵션 bottom sheet
 - ✅ T25-mock: 반복 토글 ON → dayOfMonth/endDate 입력 → 저장 → 목록 + 예정 배너 표시
 - ✅ T25-mock: 반복 X 버튼 → 3가지 삭제 옵션 / 단건 삭제 시 배너 재등장 방지
-- ⬜ T24-mock: 카드 결제 현황 탭에서 2슬롯 카드 표시, D-day 배지, 이용금액 표시
-- ⬜ T24-mock: 슬롯 클릭 시 드릴다운 패널에 mock 거래 목록 표시
+- 🔄 T24-mock: Sprint 6 Step 1로 이관 (2026-03-16 완료) — CardBillingView.vue, CardBillingCard.vue, CardBillingSlot.vue, cardBilling.mock.ts 구현됨
 - ✅ 기존 일반/할부/반복 거래 CRUD 기능이 이 스프린트 변경으로 인해 깨지지 않음
 
 ### 코드 품질 기준
@@ -261,10 +260,10 @@ Sprint 5 백엔드 설계 시 반영 필요:
 |--------|------|------|
 | `frontend/src/views/MockupView.vue` | 할부 + 반복 CRUD 목업 (인라인 토글, 삭제 bottom sheet, 예정 배너) | ✅ |
 | `frontend/src/mocks/installment.mock.ts` | 할부 금액 계산 함수 | ✅ |
-| `frontend/src/components/CardBillingCard.vue` | 카드별 청구 요약 컴포넌트 | ⬜ |
-| `frontend/src/components/CardBillingSlot.vue` | 청구 슬롯 컴포넌트 | ⬜ |
-| `frontend/src/views/CardBillingView.vue` | 카드 결제 현황 탭 화면 | ⬜ |
-| `frontend/src/mocks/cardBilling.mock.ts` | 카드 결제 현황 mock 데이터 | ⬜ |
+| `frontend/src/components/CardBillingCard.vue` | 카드별 청구 요약 컴포넌트 | 🔄 Sprint 6 Step 1 |
+| `frontend/src/components/CardBillingSlot.vue` | 청구 슬롯 컴포넌트 | 🔄 Sprint 6 Step 1 |
+| `frontend/src/views/CardBillingView.vue` | 카드 결제 현황 탭 화면 | 🔄 Sprint 6 Step 1 |
+| `frontend/src/mocks/cardBilling.mock.ts` | 카드 결제 현황 mock 데이터 | 🔄 Sprint 6 Step 1 |
 | `docs/sprint/sprint4.md` | 본 문서 | ✅ |
 
 ---

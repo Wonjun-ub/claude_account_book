@@ -7,7 +7,7 @@
 | 스프린트 번호 | Sprint 2 |
 | 브랜치 | `sprint2` |
 | 기간 | 2026-03-13 ~ 2026-03-27 (2주) |
-| 상태 | ⬜ 진행 예정 |
+| 상태 | ✅ 완료 (2026-03-15) |
 | 대상 브랜치 (PR) | `develop` |
 | 백엔드 API | https://budget-tracker-api-51n7.onrender.com |
 
