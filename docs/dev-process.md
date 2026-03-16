@@ -178,7 +178,7 @@ sprint-close agent의 4단계 및 hotfix-close agent의 3단계에서 이 체크
 
 - [ ] 하드코딩된 시크릿, API 키, 비밀번호 없음
 - [ ] SQL 인젝션 방지 (ORM 파라미터 바인딩 사용)
-- [ ] XSS 방지 (React 기본 이스케이프 사용, 인라인 HTML 주입 최소화)
+- [ ] XSS 방지 (Vue 기본 이스케이프 사용, 인라인 HTML 주입 최소화)
 - [ ] 인증/인가 체크 누락 없음
 
 ### 성능

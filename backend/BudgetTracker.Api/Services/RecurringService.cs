@@ -36,11 +36,11 @@ public class RecurringService : IRecurringService
     {
         // 카테고리 존재 확인
         if (!await _recurringRepo.CategoryExistsAsync(request.CategoryId))
-            return (null, "존재하지 않는 카테고리입니다.");
+            return (null, "CATEGORY_NOT_FOUND");
 
         // 결제수단 존재 확인
         if (!await _recurringRepo.PaymentMethodExistsAsync(request.PaymentMethodId))
-            return (null, "존재하지 않는 결제수단입니다.");
+            return (null, "PAYMENT_METHOD_NOT_FOUND");
 
         // 엔티티 생성
         var recurring = new RecurringTransaction
@@ -72,23 +72,31 @@ public class RecurringService : IRecurringService
         switch (mode.ToLower())
         {
             case "all":
-                // 모든 연결 거래 삭제 + 원부 삭제
-                await _recurringRepo.DeleteAllTransactionsAsync(id);
+            {
+                // 모든 연결 거래 삭제 + 포인트 복구 + 원부 삭제
+                var txs = await _recurringRepo.DeleteAllTransactionsAsync(id);
+                RestorePointBalances(txs);
+                await _recurringRepo.SaveChangesAsync();
                 await _recurringRepo.DeleteAsync(recurring);
                 break;
+            }
 
             case "fromhere":
-                // 해당 날짜 이후 거래 삭제 + 비활성화
+            {
+                // 해당 날짜 이후 거래 삭제 + 포인트 복구 + 비활성화
                 if (!date.HasValue)
                     return "MISSING_DATE";
-                await _recurringRepo.DeleteTransactionsFromDateAsync(id, date.Value.ToUniversalTime());
+                var txs = await _recurringRepo.DeleteTransactionsFromDateAsync(id, date.Value.ToUniversalTime());
+                RestorePointBalances(txs);
                 recurring.IsActive = false;
                 recurring.EndDate = date.Value.ToUniversalTime().AddDays(-1);
                 await _recurringRepo.UpdateAsync(recurring);
                 break;
+            }
 
             case "skipmonth":
-                // 해당 월 스킵 등록 + 해당 월 거래 있으면 삭제
+            {
+                // 해당 월 스킵 등록 + 해당 월 거래 있으면 삭제 + 포인트 복구
                 if (!year.HasValue || !month.HasValue)
                     return "MISSING_YEAR_MONTH";
 
@@ -104,12 +112,15 @@ public class RecurringService : IRecurringService
                     await _recurringRepo.AddSkipAsync(skip);
                 }
 
-                // 해당 월에 이미 생성된 거래가 있으면 삭제
+                // 해당 월에 이미 생성된 거래가 있으면 삭제 + 포인트 복구
                 var settings = await _settingsRepo.GetAsync();
                 int monthStartDay = settings?.MonthStartDay ?? 1;
                 var (periodStart, periodEnd) = DateRangeHelper.GetMonthRange(year.Value, month.Value, monthStartDay);
-                await _recurringRepo.DeleteTransactionsInPeriodAsync(id, periodStart, periodEnd);
+                var periodTxs = await _recurringRepo.DeleteTransactionsInPeriodAsync(id, periodStart, periodEnd);
+                RestorePointBalances(periodTxs);
+                await _recurringRepo.SaveChangesAsync();
                 break;
+            }
 
             default:
                 return "INVALID_MODE";
@@ -118,7 +129,7 @@ public class RecurringService : IRecurringService
         return null;
     }
 
-    // 특정 월의 반복 지출 자동 생성 (on-demand)
+    // 특정 월의 반복 지출 자동 생성 (on-demand, DB 트랜잭션으로 원자적 처리)
     public async Task ApplyRecurringTransactionsAsync(int year, int month)
     {
         // 사용자 설정 및 기간 계산
@@ -130,61 +141,72 @@ public class RecurringService : IRecurringService
         // 활성화된 반복 지출 조회 (스킵 포함)
         var recurringList = await _recurringRepo.GetAllActiveAsync();
 
-        foreach (var recurring in recurringList)
+        await using var dbTx = await _recurringRepo.BeginTransactionAsync();
+        try
         {
-            // StartDate 이전이면 스킵
-            if (recurring.StartDate.HasValue && recurring.StartDate.Value > periodEnd)
-                continue;
-
-            // EndDate 이후이면 스킵
-            if (recurring.EndDate.HasValue && recurring.EndDate.Value < periodStart)
-                continue;
-
-            // 이 월 스킵 여부 확인
-            bool isSkipped = recurring.RecurringSkips.Any(s => s.Year == year && s.Month == month);
-            if (isSkipped)
-                continue;
-
-            // 이 월의 실제 거래 날짜 계산
-            DateTime transactionDate = DateRangeHelper.GetTransactionDate(year, month, recurring.DayOfMonth);
-
-            // 해당 날짜가 이 월의 기간 내에 있는지 확인
-            if (transactionDate < periodStart || transactionDate > periodEnd)
-                continue;
-
-            // 이미 이 월에 이 반복 지출로 생성된 거래가 있는지 확인 (멱등성)
-            bool alreadyCreated = await _transactionRepo.GetByRecurringAndDateAsync(recurring.Id, transactionDate);
-            if (alreadyCreated)
-                continue;
-
-            // 포인트 잔액 확인 및 차감
-            if (recurring.PaymentMethod.Type == PaymentMethodType.Point
-                && recurring.PaymentMethod.PointBudget is not null)
+            foreach (var recurring in recurringList)
             {
-                if (recurring.PaymentMethod.PointBudget.RemainingAmount < recurring.Amount)
-                    continue; // 잔액 부족 시 스킵
+                // StartDate 이전이면 스킵
+                if (recurring.StartDate.HasValue && recurring.StartDate.Value > periodEnd)
+                    continue;
 
-                recurring.PaymentMethod.PointBudget.RemainingAmount -= recurring.Amount;
+                // EndDate 이후이면 스킵
+                if (recurring.EndDate.HasValue && recurring.EndDate.Value < periodStart)
+                    continue;
+
+                // 이 월 스킵 여부 확인
+                bool isSkipped = recurring.RecurringSkips.Any(s => s.Year == year && s.Month == month);
+                if (isSkipped)
+                    continue;
+
+                // 이 월의 실제 거래 날짜 계산
+                DateTime transactionDate = DateRangeHelper.GetTransactionDate(year, month, recurring.DayOfMonth);
+
+                // 해당 날짜가 이 월의 기간 내에 있는지 확인
+                if (transactionDate < periodStart || transactionDate > periodEnd)
+                    continue;
+
+                // 이미 이 월에 이 반복 지출로 생성된 거래가 있는지 확인 (멱등성)
+                bool alreadyCreated = await _transactionRepo.GetByRecurringAndDateAsync(recurring.Id, transactionDate);
+                if (alreadyCreated)
+                    continue;
+
+                // 포인트 잔액 확인 및 차감
+                if (recurring.PaymentMethod.Type == PaymentMethodType.Point
+                    && recurring.PaymentMethod.PointBudget is not null)
+                {
+                    if (recurring.PaymentMethod.PointBudget.RemainingAmount < recurring.Amount)
+                        continue; // 잔액 부족 시 스킵
+
+                    recurring.PaymentMethod.PointBudget.RemainingAmount -= recurring.Amount;
+                }
+
+                // 카테고리 타입으로 거래 유형 결정 (Income/Expense)
+                var transactionType = recurring.Category.Type == CategoryType.Income
+                    ? TransactionType.Income
+                    : TransactionType.Expense;
+
+                var transaction = new Transaction
+                {
+                    Amount = recurring.Amount,
+                    Date = transactionDate,
+                    Memo = recurring.Memo,
+                    Type = transactionType,
+                    CategoryId = recurring.CategoryId,
+                    PaymentMethodId = recurring.PaymentMethodId,
+                    IsIncludedInTotal = true,
+                    RecurringTransactionId = recurring.Id
+                };
+
+                await _transactionRepo.CreateAsync(transaction);
             }
 
-            // 카테고리 타입으로 거래 유형 결정 (Income/Expense)
-            var transactionType = recurring.Category.Type == CategoryType.Income
-                ? TransactionType.Income
-                : TransactionType.Expense;
-
-            var transaction = new Transaction
-            {
-                Amount = recurring.Amount,
-                Date = transactionDate,
-                Memo = recurring.Memo,
-                Type = transactionType,
-                CategoryId = recurring.CategoryId,
-                PaymentMethodId = recurring.PaymentMethodId,
-                IsIncludedInTotal = true,
-                RecurringTransactionId = recurring.Id
-            };
-
-            await _transactionRepo.CreateAsync(transaction);
+            await dbTx.CommitAsync();
+        }
+        catch
+        {
+            await dbTx.RollbackAsync();
+            throw;
         }
     }
 
@@ -222,6 +244,19 @@ public class RecurringService : IRecurringService
         }
 
         return pending;
+    }
+
+    // 포인트 결제수단 잔액 복구 (삭제 시 호출)
+    private static void RestorePointBalances(IEnumerable<Transaction> transactions)
+    {
+        foreach (var tx in transactions)
+        {
+            if (tx.PaymentMethod.Type == PaymentMethodType.Point
+                && tx.PaymentMethod.PointBudget is not null)
+            {
+                tx.PaymentMethod.PointBudget.RemainingAmount += tx.Amount;
+            }
+        }
     }
 
     private static RecurringTransactionResponse MapToResponse(RecurringTransaction r) => new()

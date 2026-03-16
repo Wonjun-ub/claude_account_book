@@ -1,5 +1,6 @@
 using BudgetTracker.Api.DTOs.Requests;
 using BudgetTracker.Api.DTOs.Responses;
+using BudgetTracker.Api.Helpers;
 using BudgetTracker.Api.Models.Enums;
 using BudgetTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -42,10 +43,10 @@ public class CategoriesController : ControllerBase
         var (response, error) = await _service.UpdateAsync(id, request);
 
         if (error == "NOT_FOUND")
-            return NotFound(new { message = "카테고리를 찾을 수 없습니다." });
+            return NotFound(new { code = error, message = ErrorMessages.GetMessage(error) });
 
         if (error is not null)
-            return BadRequest(new { message = error });
+            return BadRequest(new { code = error, message = ErrorMessages.GetMessage(error) });
 
         return Ok(response);
     }
@@ -57,10 +58,10 @@ public class CategoriesController : ControllerBase
         var error = await _service.DeleteAsync(id);
 
         if (error == "NOT_FOUND")
-            return NotFound(new { message = "카테고리를 찾을 수 없습니다." });
+            return NotFound(new { code = error, message = ErrorMessages.GetMessage(error) });
 
         if (error is not null)
-            return BadRequest(new { message = error });
+            return BadRequest(new { code = error, message = ErrorMessages.GetMessage(error) });
 
         return NoContent();
     }

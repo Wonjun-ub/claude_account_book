@@ -2,6 +2,7 @@ using BudgetTracker.Api.Data;
 using BudgetTracker.Api.Models.Entities;
 using BudgetTracker.Api.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace BudgetTracker.Api.Repositories;
 
@@ -81,24 +82,30 @@ public class RecurringRepository : IRecurringRepository
         return await _db.PaymentMethods.AnyAsync(p => p.Id == paymentMethodId);
     }
 
-    // 해당 날짜 이후 거래 삭제
-    public async Task DeleteTransactionsFromDateAsync(int recurringId, DateTime fromDate)
+    // 해당 날짜 이후 거래 조회 + 삭제 (포인트 복구를 위해 거래 목록 반환)
+    public async Task<IEnumerable<Transaction>> DeleteTransactionsFromDateAsync(int recurringId, DateTime fromDate)
     {
         var txs = await _db.Transactions
+            .Include(t => t.PaymentMethod)
+                .ThenInclude(p => p.PointBudget)
             .Where(t => t.RecurringTransactionId == recurringId && t.Date >= fromDate)
             .ToListAsync();
         _db.Transactions.RemoveRange(txs);
         await _db.SaveChangesAsync();
+        return txs;
     }
 
-    // 모든 거래 삭제
-    public async Task DeleteAllTransactionsAsync(int recurringId)
+    // 모든 거래 조회 + 삭제 (포인트 복구를 위해 거래 목록 반환)
+    public async Task<IEnumerable<Transaction>> DeleteAllTransactionsAsync(int recurringId)
     {
         var txs = await _db.Transactions
+            .Include(t => t.PaymentMethod)
+                .ThenInclude(p => p.PointBudget)
             .Where(t => t.RecurringTransactionId == recurringId)
             .ToListAsync();
         _db.Transactions.RemoveRange(txs);
         await _db.SaveChangesAsync();
+        return txs;
     }
 
     // 스킵 등록
@@ -117,15 +124,30 @@ public class RecurringRepository : IRecurringRepository
             s.Month == month);
     }
 
-    // 기간 내 거래 삭제
-    public async Task DeleteTransactionsInPeriodAsync(int recurringId, DateTime periodStart, DateTime periodEnd)
+    // 기간 내 거래 조회 + 삭제 (포인트 복구를 위해 거래 목록 반환)
+    public async Task<IEnumerable<Transaction>> DeleteTransactionsInPeriodAsync(int recurringId, DateTime periodStart, DateTime periodEnd)
     {
         var txs = await _db.Transactions
+            .Include(t => t.PaymentMethod)
+                .ThenInclude(p => p.PointBudget)
             .Where(t => t.RecurringTransactionId == recurringId
                      && t.Date >= periodStart
                      && t.Date <= periodEnd)
             .ToListAsync();
         _db.Transactions.RemoveRange(txs);
+        await _db.SaveChangesAsync();
+        return txs;
+    }
+
+    // DB 트랜잭션 시작 (ApplyRecurringTransactionsAsync 원자적 처리용)
+    public async Task<IDbContextTransaction> BeginTransactionAsync()
+    {
+        return await _db.Database.BeginTransactionAsync();
+    }
+
+    // 변경사항 저장
+    public async Task SaveChangesAsync()
+    {
         await _db.SaveChangesAsync();
     }
 

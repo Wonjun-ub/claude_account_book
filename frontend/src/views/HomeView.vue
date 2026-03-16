@@ -162,7 +162,10 @@ async function onPendingDeleteClick(master: RecurringTransaction) {
 async function handleDeleteSingle(tx: Transaction) {
   if (!await showConfirm('거래를 삭제하시겠습니까?')) return
 
-  // 낙관적 UI 업데이트
+  // 낙관적 UI 업데이트 (롤백을 위해 이전 상태 저장)
+  const prevTransactions = transactions.value
+  const prevSummary = summary.value
+
   transactions.value = transactions.value.filter(t => t.id !== tx.id)
   if (summary.value && tx.isIncludedInTotal) {
     if (tx.type === 'Income') {
@@ -172,7 +175,14 @@ async function handleDeleteSingle(tx: Transaction) {
     }
   }
 
-  await transactionsApi.delete(tx.id)
+  try {
+    await transactionsApi.delete(tx.id)
+  } catch (e: unknown) {
+    // API 실패 시 UI 롤백
+    transactions.value = prevTransactions
+    summary.value = prevSummary
+    await showAlert(e instanceof Error ? e.message : '삭제 중 오류가 발생했습니다.')
+  }
 }
 
 // 할부 삭제 핸들러

@@ -1,5 +1,6 @@
 using BudgetTracker.Api.DTOs.Requests;
 using BudgetTracker.Api.DTOs.Responses;
+using BudgetTracker.Api.Helpers;
 using BudgetTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
@@ -42,7 +43,7 @@ public class TransactionsController : ControllerBase
         var result = await _service.GetByIdAsync(id);
 
         if (result is null)
-            return NotFound(new { message = "거래를 찾을 수 없습니다." });
+            return NotFound(new { code = "NOT_FOUND", message = ErrorMessages.GetMessage("NOT_FOUND") });
 
         return Ok(result);
     }
@@ -54,7 +55,7 @@ public class TransactionsController : ControllerBase
         var (response, error) = await _service.CreateAsync(request);
 
         if (error is not null)
-            return BadRequest(new { message = error });
+            return BadRequest(new { code = error, message = ErrorMessages.GetMessage(error) });
 
         return CreatedAtAction(nameof(GetById), new { id = response!.Id }, response);
     }
@@ -66,10 +67,10 @@ public class TransactionsController : ControllerBase
         var (response, error) = await _service.UpdateAsync(id, request);
 
         if (error == "NOT_FOUND")
-            return NotFound(new { message = "거래를 찾을 수 없습니다." });
+            return NotFound(new { code = error, message = ErrorMessages.GetMessage(error) });
 
         if (error is not null)
-            return BadRequest(new { message = error });
+            return BadRequest(new { code = error, message = ErrorMessages.GetMessage(error) });
 
         return Ok(response);
     }
@@ -81,7 +82,7 @@ public class TransactionsController : ControllerBase
         var error = await _service.DeleteAsync(id);
 
         if (error == "NOT_FOUND")
-            return NotFound(new { message = "거래를 찾을 수 없습니다." });
+            return NotFound(new { code = error, message = ErrorMessages.GetMessage(error) });
 
         return NoContent();
     }

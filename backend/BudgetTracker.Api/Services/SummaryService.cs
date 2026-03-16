@@ -22,7 +22,7 @@ public class SummaryService : ISummaryService
         _settingsRepo = settingsRepo;
     }
 
-    // 월별 요약 (반복 지출 자동 반영 포함)
+    // 월별 요약 (반복 지출 자동 반영 포함) — 단일 쿼리로 최적화
     public async Task<MonthlySummaryResponse> GetMonthlyAsync(int year, int month)
     {
         // 반복 지출 자동 반영 (on-demand)
@@ -34,17 +34,18 @@ public class SummaryService : ISummaryService
 
         var (periodStart, periodEnd) = DateRangeHelper.GetMonthRange(year, month, monthStartDay);
 
-        // 합산 포함 거래 (수입/지출 합계)
-        var includedTx = await _summaryRepo.GetIncludedByPeriodAsync(periodStart, periodEnd);
-        var incomeList = includedTx.Where(t => t.Type == TransactionType.Income).ToList();
-        var expenseList = includedTx.Where(t => t.Type == TransactionType.Expense).ToList();
-        decimal totalIncome = incomeList.Sum(t => t.Amount);
-        decimal totalExpense = expenseList.Sum(t => t.Amount);
+        // 전체 거래를 한 번에 조회 (건수 + 합계 모두 처리)
+        var allTx = await _summaryRepo.GetByPeriodAsync(periodStart, periodEnd);
+        var allTxList = allTx.ToList();
+
+        // IsIncludedInTotal 기준 필터링은 메모리에서 수행
+        var includedTx = allTxList.Where(t => t.IsIncludedInTotal).ToList();
+        decimal totalIncome = includedTx.Where(t => t.Type == TransactionType.Income).Sum(t => t.Amount);
+        decimal totalExpense = includedTx.Where(t => t.Type == TransactionType.Expense).Sum(t => t.Amount);
 
         // 전체 거래 건수 (IsIncludedInTotal 무관)
-        var allTx = await _summaryRepo.GetByPeriodAsync(periodStart, periodEnd);
-        int incomeCount = allTx.Count(t => t.Type == TransactionType.Income);
-        int expenseCount = allTx.Count(t => t.Type == TransactionType.Expense);
+        int incomeCount = allTxList.Count(t => t.Type == TransactionType.Income);
+        int expenseCount = allTxList.Count(t => t.Type == TransactionType.Expense);
 
         // 전월 대비 지출 변화 계산
         var prevMonth = month == 1 ? 12 : month - 1;
@@ -107,7 +108,7 @@ public class SummaryService : ISummaryService
             .ToList();
     }
 
-    // 월별 추이
+    // 월별 추이 — 전체 기간을 단일 쿼리로 조회 후 메모리에서 그룹핑
     public async Task<IEnumerable<MonthlyTrendResponse>> GetTrendAsync(int months)
     {
         if (months < 1 || months > 24)
@@ -117,8 +118,17 @@ public class SummaryService : ISummaryService
         int monthStartDay = settings?.MonthStartDay ?? 1;
 
         var now = DateTime.UtcNow;
-        var result = new List<MonthlyTrendResponse>();
 
+        // 전체 기간의 시작/종료 계산
+        var earliestDate = now.AddMonths(-(months - 1));
+        var (earliestFrom, _) = DateRangeHelper.GetMonthRange(earliestDate.Year, earliestDate.Month, monthStartDay);
+        var (_, latestTo) = DateRangeHelper.GetMonthRange(now.Year, now.Month, monthStartDay);
+
+        // 전체 기간 거래를 한 번에 조회
+        var allTransactions = (await _summaryRepo.GetIncludedByPeriodAsync(earliestFrom, latestTo)).ToList();
+
+        // 메모리에서 각 월별로 필터링하여 집계
+        var result = new List<MonthlyTrendResponse>();
         for (int i = months - 1; i >= 0; i--)
         {
             var targetDate = now.AddMonths(-i);
@@ -126,14 +136,14 @@ public class SummaryService : ISummaryService
             int targetMonth = targetDate.Month;
 
             var (periodStart, periodEnd) = DateRangeHelper.GetMonthRange(targetYear, targetMonth, monthStartDay);
-            var transactions = await _summaryRepo.GetIncludedByPeriodAsync(periodStart, periodEnd);
+            var monthTx = allTransactions.Where(t => t.Date >= periodStart && t.Date <= periodEnd).ToList();
 
             result.Add(new MonthlyTrendResponse
             {
                 Year = targetYear,
                 Month = targetMonth,
-                Income = transactions.Where(t => t.Type == TransactionType.Income).Sum(t => t.Amount),
-                Expense = transactions.Where(t => t.Type == TransactionType.Expense).Sum(t => t.Amount)
+                Income = monthTx.Where(t => t.Type == TransactionType.Income).Sum(t => t.Amount),
+                Expense = monthTx.Where(t => t.Type == TransactionType.Expense).Sum(t => t.Amount)
             });
         }
 

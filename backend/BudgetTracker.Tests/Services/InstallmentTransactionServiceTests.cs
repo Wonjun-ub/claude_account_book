@@ -1,10 +1,122 @@
+using BudgetTracker.Api.Models.Entities;
+using BudgetTracker.Api.Models.Enums;
+using BudgetTracker.Api.Repositories.Interfaces;
 using BudgetTracker.Api.Services;
+using Moq;
 using Xunit;
 
 namespace BudgetTracker.Tests.Services;
 
 public class InstallmentTransactionServiceTests
 {
+    // ── DeleteAsync ───────────────────────────────────────────────────────────
+
+    private static InstallmentTransaction MakeMaster(int id = 1) => new()
+    {
+        Id = id,
+        TotalAmount = 300_000m,
+        MonthlyAmount = 100_000m,
+        FirstMonthAmount = 100_000m,
+        TotalInstallments = 3,
+        StartDate = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+        CategoryId = 1,
+        PaymentMethodId = 1,
+        IsActive = true,
+        Category = new Category { Id = 1, Name = "식비", Type = CategoryType.Expense },
+        PaymentMethod = new PaymentMethod { Id = 1, Name = "현금", Type = PaymentMethodType.Cash },
+    };
+
+    private static List<Transaction> MakeTransactions(int masterId, int count) =>
+        Enumerable.Range(1, count).Select(seq => new Transaction
+        {
+            Id = seq,
+            Amount = 100_000m,
+            InstallmentTransactionId = masterId,
+            InstallmentSequence = seq,
+            Category = new Category { Id = 1, Name = "식비", Type = CategoryType.Expense },
+            PaymentMethod = new PaymentMethod { Id = 1, Name = "현금", Type = PaymentMethodType.Cash },
+        }).ToList();
+
+    private static (InstallmentTransactionService svc,
+        Mock<IInstallmentTransactionRepository> repoMock,
+        Mock<ITransactionRepository> txRepoMock)
+        CreateService()
+    {
+        var repoMock = new Mock<IInstallmentTransactionRepository>();
+        var txRepoMock = new Mock<ITransactionRepository>();
+        repoMock.Setup(r => r.SaveChangesAsync()).Returns(Task.CompletedTask);
+        repoMock.Setup(r => r.DeleteTransactionsAsync(It.IsAny<IEnumerable<Transaction>>())).Returns(Task.CompletedTask);
+        repoMock.Setup(r => r.DeleteAsync(It.IsAny<InstallmentTransaction>())).Returns(Task.CompletedTask);
+        var svc = new InstallmentTransactionService(repoMock.Object, txRepoMock.Object);
+        return (svc, repoMock, txRepoMock);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ModeAll_DeletesAllTransactionsAndMaster()
+    {
+        // Arrange
+        var (svc, repoMock, _) = CreateService();
+        var master = MakeMaster();
+        var txs = MakeTransactions(master.Id, 3);
+
+        repoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(master);
+        repoMock.Setup(r => r.GetTransactionsByMasterAsync(1)).ReturnsAsync(txs);
+
+        // Act
+        var error = await svc.DeleteAsync(1, "all", null);
+
+        // Assert
+        Assert.Null(error);
+        repoMock.Verify(r => r.DeleteTransactionsAsync(txs), Times.Once);
+        repoMock.Verify(r => r.DeleteAsync(master), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ModeFromHere_DeletesFromSequenceOnward()
+    {
+        // Arrange
+        var (svc, repoMock, _) = CreateService();
+        var master = MakeMaster();
+        var txsFromSeq2 = MakeTransactions(master.Id, 3).Where(t => t.InstallmentSequence >= 2).ToList();
+
+        repoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(master);
+        repoMock.Setup(r => r.GetTransactionsFromSeqAsync(1, 2)).ReturnsAsync(txsFromSeq2);
+
+        // Act
+        var error = await svc.DeleteAsync(1, "fromHere", seq: 2);
+
+        // Assert
+        Assert.Null(error);
+        repoMock.Verify(r => r.GetTransactionsFromSeqAsync(1, 2), Times.Once);
+        repoMock.Verify(r => r.DeleteTransactionsAsync(txsFromSeq2), Times.Once);
+        // 원부는 삭제하지 않음
+        repoMock.Verify(r => r.DeleteAsync(It.IsAny<InstallmentTransaction>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ModeSingle_DeletesOnlySpecifiedSequence()
+    {
+        // Arrange
+        var (svc, repoMock, _) = CreateService();
+        var master = MakeMaster();
+        var seq2Tx = MakeTransactions(master.Id, 3).First(t => t.InstallmentSequence == 2);
+
+        repoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(master);
+        repoMock.Setup(r => r.GetTransactionBySeqAsync(1, 2)).ReturnsAsync(seq2Tx);
+
+        // Act
+        var error = await svc.DeleteAsync(1, "single", seq: 2);
+
+        // Assert
+        Assert.Null(error);
+        repoMock.Verify(r => r.GetTransactionBySeqAsync(1, 2), Times.Once);
+        repoMock.Verify(r => r.DeleteTransactionsAsync(
+            It.Is<IEnumerable<Transaction>>(list => list.Single() == seq2Tx)), Times.Once);
+        // 원부는 삭제하지 않음
+        repoMock.Verify(r => r.DeleteAsync(It.IsAny<InstallmentTransaction>()), Times.Never);
+    }
+
+
     // ── CalcInstallment ───────────────────────────────────────────────────────
     // floor 방식: 나머지는 1회차에 합산
 

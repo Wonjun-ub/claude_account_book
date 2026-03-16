@@ -73,18 +73,18 @@ public class TransactionService : ITransactionService
         // 카테고리 존재 확인
         var category = await _categoryRepo.GetByIdAsync(request.CategoryId);
         if (category is null)
-            return (null, "존재하지 않는 카테고리입니다.");
+            return (null, "CATEGORY_NOT_FOUND");
 
         // 결제수단 존재 확인 + 포인트 결제수단인 경우 잔액 확인
         var paymentMethod = await _paymentMethodRepo.GetByIdAsync(request.PaymentMethodId);
         if (paymentMethod is null)
-            return (null, "존재하지 않는 결제수단입니다.");
+            return (null, "PAYMENT_METHOD_NOT_FOUND");
 
         // 포인트 차감 처리
         if (paymentMethod.Type == PaymentMethodType.Point && paymentMethod.PointBudget is not null)
         {
             if (paymentMethod.PointBudget.RemainingAmount < request.Amount)
-                return (null, $"포인트 잔액이 부족합니다. (잔액: {paymentMethod.PointBudget.RemainingAmount:N0}원)");
+                return (null, "POINT_INSUFFICIENT");
 
             paymentMethod.PointBudget.RemainingAmount -= request.Amount;
         }
@@ -119,12 +119,12 @@ public class TransactionService : ITransactionService
         // 카테고리 존재 확인
         var category = await _categoryRepo.GetByIdAsync(request.CategoryId);
         if (category is null)
-            return (null, "존재하지 않는 카테고리입니다.");
+            return (null, "CATEGORY_NOT_FOUND");
 
         // 새 결제수단 로드
         var newPaymentMethod = await _paymentMethodRepo.GetByIdAsync(request.PaymentMethodId);
         if (newPaymentMethod is null)
-            return (null, "존재하지 않는 결제수단입니다.");
+            return (null, "PAYMENT_METHOD_NOT_FOUND");
 
         // 포인트 잔액 사전 검증 (엔티티 수정 전에 먼저 확인)
         // 같은 결제수단 변경(금액만 변경)이면 복구 예정 금액을 가용 잔액에 포함
@@ -140,7 +140,7 @@ public class TransactionService : ITransactionService
             }
 
             if (availableBalance < request.Amount)
-                return (null, $"포인트 잔액이 부족합니다. (잔액: {newPaymentMethod.PointBudget.RemainingAmount:N0}원)");
+                return (null, "POINT_INSUFFICIENT");
         }
 
         // 검증 통과 후 안전하게 복구·차감 처리

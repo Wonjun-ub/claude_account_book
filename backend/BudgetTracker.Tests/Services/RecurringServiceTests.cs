@@ -2,6 +2,7 @@ using BudgetTracker.Api.Models.Entities;
 using BudgetTracker.Api.Models.Enums;
 using BudgetTracker.Api.Repositories.Interfaces;
 using BudgetTracker.Api.Services;
+using Microsoft.EntityFrameworkCore.Storage;
 using Moq;
 using Xunit;
 
@@ -146,6 +147,52 @@ public class RecurringServiceTests
         var result = await _service.GetPendingAsync(2026, 3);
 
         Assert.Single(result);
+    }
+
+    // ── ApplyRecurringTransactionsAsync ────────────────────────────────────────
+
+    [Fact]
+    public async Task ApplyAsync_SkippedMonth_DoesNotCreateTransaction()
+    {
+        // Arrange: 2026년 3월 스킵 등록 → Transaction 생성 안 됨
+        var dbTxMock = new Mock<IDbContextTransaction>();
+        dbTxMock.Setup(t => t.CommitAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        dbTxMock.Setup(t => t.DisposeAsync()).Returns(ValueTask.CompletedTask);
+
+        var recurring = MakeRecurring(id: 1, dayOfMonth: 15,
+            skips: [new RecurringSkip { Year = 2026, Month = 3 }]);
+        _recurringRepoMock.Setup(r => r.GetAllActiveAsync()).ReturnsAsync([recurring]);
+        _recurringRepoMock.Setup(r => r.BeginTransactionAsync()).ReturnsAsync(dbTxMock.Object);
+
+        // Act
+        await _service.ApplyRecurringTransactionsAsync(2026, 3);
+
+        // Assert: CreateAsync가 호출되지 않아야 함
+        _transactionRepoMock.Verify(r => r.CreateAsync(It.IsAny<Transaction>()), Times.Never);
+        dbTxMock.Verify(t => t.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ApplyAsync_EndDatePassed_DoesNotCreateTransaction()
+    {
+        // Arrange: EndDate가 기간 시작(2026-03-01)보다 이전 → 스킵
+        // monthStartDay=1: 기간 = 2026-03-01 ~ 2026-03-31
+        // EndDate = 2026-02-28 → periodStart(2026-03-01)보다 이전
+        var dbTxMock = new Mock<IDbContextTransaction>();
+        dbTxMock.Setup(t => t.CommitAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        dbTxMock.Setup(t => t.DisposeAsync()).Returns(ValueTask.CompletedTask);
+
+        var recurring = MakeRecurring(id: 1, dayOfMonth: 15,
+            endDate: new DateTime(2026, 2, 28, 0, 0, 0, DateTimeKind.Utc));
+        _recurringRepoMock.Setup(r => r.GetAllActiveAsync()).ReturnsAsync([recurring]);
+        _recurringRepoMock.Setup(r => r.BeginTransactionAsync()).ReturnsAsync(dbTxMock.Object);
+
+        // Act
+        await _service.ApplyRecurringTransactionsAsync(2026, 3);
+
+        // Assert: CreateAsync가 호출되지 않아야 함
+        _transactionRepoMock.Verify(r => r.CreateAsync(It.IsAny<Transaction>()), Times.Never);
+        dbTxMock.Verify(t => t.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     // ── 헬퍼 ──────────────────────────────────────────────────────────────────

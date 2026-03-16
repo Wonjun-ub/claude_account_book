@@ -1,5 +1,6 @@
 using BudgetTracker.Api.DTOs.Requests;
 using BudgetTracker.Api.DTOs.Responses;
+using BudgetTracker.Api.Helpers;
 using BudgetTracker.Api.Models.Enums;
 using BudgetTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -33,7 +34,7 @@ public class PaymentMethodsController : ControllerBase
         var (response, error) = await _service.CreateAsync(request);
 
         if (error is not null)
-            return BadRequest(new { message = error });
+            return BadRequest(new { code = error, message = ErrorMessages.GetMessage(error) });
 
         return CreatedAtAction(nameof(GetAll), new { id = response!.Id }, response);
     }
@@ -45,10 +46,10 @@ public class PaymentMethodsController : ControllerBase
         var (response, error) = await _service.UpdateAsync(id, request);
 
         if (error == "NOT_FOUND")
-            return NotFound(new { message = "결제수단을 찾을 수 없습니다." });
+            return NotFound(new { code = error, message = ErrorMessages.GetMessage(error) });
 
         if (error is not null)
-            return BadRequest(new { message = error });
+            return BadRequest(new { code = error, message = ErrorMessages.GetMessage(error) });
 
         return Ok(response);
     }
@@ -60,10 +61,10 @@ public class PaymentMethodsController : ControllerBase
         var error = await _service.DeleteAsync(id);
 
         if (error == "NOT_FOUND")
-            return NotFound(new { message = "결제수단을 찾을 수 없습니다." });
+            return NotFound(new { code = error, message = ErrorMessages.GetMessage(error) });
 
         if (error is not null)
-            return BadRequest(new { message = error });
+            return BadRequest(new { code = error, message = ErrorMessages.GetMessage(error) });
 
         return NoContent();
     }

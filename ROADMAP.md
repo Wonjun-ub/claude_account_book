@@ -50,7 +50,7 @@
 - **일반 (One-time)**: 단건 거래
 - **반복 (Fixed Recurring)**: 매달 같은 날 같은 금액 자동 반영 (수입/지출 공통)
   - 부가 정보 섹션 내 토글, 매월 반복 일자(dayOfMonth) + 종료일(endDate) 입력
-  - 실서비스: .NET BackgroundService 매일 자정 실행 → DayOfMonth 도래 시 Transaction 자동 생성
+  - 실서비스: GET /api/recurring-transactions/pending 호출 시 on-demand로 미등록 반복 목록 반환, POST 적용 시 Transaction 생성
   - 삭제 옵션: 전체 삭제 / 이후 삭제 / 단건 삭제(이번 달만, 반복 유지) 3가지 bottom sheet
   - 반복 예정 배너: 이번 달 미등록 반복 항목을 검색바·카테고리 칩 사이에 요약 표시
 - **할부 (Installment)**: 총금액+개월수 입력, 카드사 방식 자동 계산 (Sprint 5에서 전면 개편)
@@ -104,7 +104,7 @@
 | T4 | 카테고리 API | ✅ | GET/POST/PUT/DELETE /api/categories |
 | T5 | 결제수단 API | ✅ | GET/POST/PUT/DELETE /api/payment-methods |
 | T6 | 포인트 예산 API | ✅ | GET/POST /api/point-budgets + 잔액 차감 처리 |
-| T7 | 반복 지출 API | ✅ | GET/POST /api/recurring-transactions + 자동 반영 로직 (BackgroundService 일일 스케줄로 DayOfMonth 도래 시 Transaction 자동 생성) |
+| T7 | 반복 지출 API | ✅ | GET/POST /api/recurring-transactions + 자동 반영 로직 (on-demand 방식: ApplyRecurringTransactionsAsync 호출 시 해당 월 Transaction 생성) |
 | T8 | 월별 요약 API | ✅ | GET /api/summary/monthly (커스텀 시작일 기준) |
 | T9 | 통계 API | ✅ | GET /api/summary/category, /api/summary/trend |
 | T10 | 검색/필터 API | ✅ | GET /api/transactions?category=&paymentMethod=&from=&to=&keyword= |
@@ -254,14 +254,14 @@
 | Amount | decimal | 금액 |
 | Type | enum | Income / Expense |
 | CategoryId | int (FK) | 카테고리 |
-| PaymentMethodId | int (FK) | 결제수단 (수입은 null) |
+| PaymentMethodId | int (FK) | 결제수단 |
 | DayOfMonth | int | 매월 반복 일자 (1~28) |
 | StartDate | DateTime | 반복 시작일 |
 | EndDate | DateTime? | 반복 종료일 (null = 무기한) |
 | IsActive | bool | 활성 여부 |
 | Memo | string? | 메모 |
 
-> **자동 반영 메커니즘**: .NET `BackgroundService`가 매일 자정 실행 → `DayOfMonth == 오늘 일자`인 활성 원부 조회 → 해당 월에 Transaction 미생성 시 INSERT → `EndDate` 초과 시 `IsActive = false` 처리
+> **자동 반영 메커니즘**: on-demand 방식 — `ApplyRecurringTransactionsAsync(year, month)` 호출 시 해당 월 활성 원부를 조회하여 미생성 Transaction을 INSERT. 멱등성 보장(`GetByRecurringAndDateAsync`로 중복 체크). `EndDate` 초과 또는 스킵 등록 시 건너뜀.
 
 ### InstallmentTransaction (할부 원부 — Sprint 5에서 신규 추가)
 | 필드 | 타입 | 설명 |
@@ -269,9 +269,8 @@
 | Id | int | PK |
 | TotalAmount | decimal | 총 금액 |
 | MonthlyAmount | decimal | 월 할부금 = floor(총금액 ÷ 개월수) |
-| FirstMonthExtra | decimal | 첫 달 추가금 = 총금액 mod 개월수 |
+| FirstMonthAmount | decimal | 1회차 금액 = MonthlyAmount + (총금액 mod 개월수) |
 | TotalInstallments | int | 총 개월수 |
-| RemainingInstallments | int | 남은 개월수 |
 | StartDate | DateTime | 첫 번째 할부 날짜 |
 | CategoryId | int (FK) | 카테고리 |
 | PaymentMethodId | int (FK) | 결제수단 |
@@ -290,7 +289,7 @@
 
 | 메서드 | 경로 | 설명 | 상태 |
 |--------|------|------|------|
-| GET | /api/transactions | 거래 목록 (필터/검색 지원) | ✅ (Sprint 3에서 monthStartDay 버그 수정 예정) |
+| GET | /api/transactions | 거래 목록 (필터/검색 지원) | ✅ (Sprint 3에서 monthStartDay 버그 수정 완료) |
 | POST | /api/transactions | 거래 생성 | ✅ |
 | GET | /api/transactions/{id} | 거래 상세 | ✅ |
 | PUT | /api/transactions/{id} | 거래 수정 | ✅ |
@@ -306,6 +305,7 @@
 | GET | /api/point-budgets | 포인트 예산 목록 | ✅ |
 | POST | /api/point-budgets | 포인트 예산 생성 | ✅ |
 | GET | /api/recurring-transactions | 반복 지출 목록 | ✅ |
+| GET | /api/recurring-transactions/pending?year=Y&month=M | 미등록 반복 목록 조회 | ✅ Sprint 5 |
 | POST | /api/recurring-transactions | 반복 지출 등록 | ✅ |
 | DELETE | /api/recurring-transactions/{id} | 반복 지출 삭제 | ✅ |
 | GET | /api/summary/monthly | 월별 수입/지출/잔액 (커스텀 시작일 기준) | ✅ |
@@ -315,7 +315,6 @@
 | PUT | /api/settings | 사용자 설정 수정 (월 시작일 등) | ✅ |
 | POST | /api/installment-transactions | 할부 등록 | ✅ Sprint 5 |
 | GET | /api/installment-transactions | 할부 목록 | ✅ Sprint 5 |
-| GET | /api/installment-transactions/{id} | 할부 상세 | ✅ Sprint 5 |
 | DELETE | /api/installment-transactions/{id} | 할부 삭제 (all/fromHere/single 모드) | ✅ Sprint 5 |
 | GET | /api/card-billing/summary | 카드별 2슬롯 청구 현황 | ⬜ Sprint 6 |
 | GET | /api/card-billing/{id}/transactions | 청구 기간 거래 목록 (드릴다운) | ⬜ Sprint 6 |

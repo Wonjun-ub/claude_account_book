@@ -122,12 +122,13 @@ public class TransactionRepository : ITransactionRepository
         await _db.SaveChangesAsync();
     }
 
-    // 반복 지출 중복 체크: 해당 월에 이미 생성된 거래가 있는지 확인
+    // 반복 지출 중복 체크: 해당 날짜에 이미 생성된 거래가 있는지 확인
     public async Task<bool> GetByRecurringAndDateAsync(int recurringId, DateTime date)
     {
         return await _db.Transactions.AnyAsync(t =>
             t.RecurringTransactionId == recurringId &&
             t.Date.Year == date.Year &&
-            t.Date.Month == date.Month);
+            t.Date.Month == date.Month &&
+            t.Date.Day == date.Day);
     }
 }

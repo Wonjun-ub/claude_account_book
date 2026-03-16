@@ -1,5 +1,6 @@
 using BudgetTracker.Api.DTOs.Requests;
 using BudgetTracker.Api.DTOs.Responses;
+using BudgetTracker.Api.Helpers;
 using BudgetTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
@@ -23,7 +24,7 @@ public class SettingsController : ControllerBase
         var result = await _service.GetAsync();
 
         if (result is null)
-            return NotFound(new { message = "사용자 설정이 없습니다." });
+            return NotFound(new { code = "NOT_FOUND", message = ErrorMessages.GetMessage("NOT_FOUND") });
 
         return Ok(result);
     }
@@ -35,7 +36,7 @@ public class SettingsController : ControllerBase
         var result = await _service.UpdateAsync(request.MonthStartDay);
 
         if (result is null)
-            return NotFound(new { message = "사용자 설정이 없습니다." });
+            return NotFound(new { code = "NOT_FOUND", message = ErrorMessages.GetMessage("NOT_FOUND") });
 
         return Ok(result);
     }

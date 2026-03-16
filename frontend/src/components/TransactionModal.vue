@@ -51,11 +51,16 @@ const categories = computed(() =>
   form.value.type === 'Income' ? store.incomeCategories : store.expenseCategories
 )
 
-// 수입 선택 시 할부 토글 리셋
+// 타입 전환 시 처리: 수입→지출 전환 시 결제수단 기본값 설정, 수입 선택 시 할부 토글 리셋
 watch(() => form.value.type, (newType) => {
   if (newType === 'Income') {
     isInstallment.value = false
     installmentMonths.value = undefined
+  } else {
+    // 지출로 전환 시 결제수단이 미선택 상태면 첫 번째 항목으로 자동 설정
+    if (!form.value.paymentMethodId) {
+      form.value.paymentMethodId = store.paymentMethods[0]?.id ?? 0
+    }
   }
 })
 
@@ -129,7 +134,7 @@ watch(() => props.transaction, (tx) => {
       type: 'Expense',
       amount: '',
       date: dayjs().format('YYYY-MM-DD'),
-      paymentMethodId: 0,
+      paymentMethodId: store.paymentMethods[0]?.id ?? 0,
       memo: '',
       isIncludedInTotal: true,
     }
@@ -181,7 +186,7 @@ async function save() {
       const recurringMaster = await recurringApi.create({
         amount,
         categoryId: activeCategoryId.value,
-        paymentMethodId: form.value.type === 'Expense' ? form.value.paymentMethodId : 1,
+        paymentMethodId: form.value.type === 'Expense' ? form.value.paymentMethodId : (store.paymentMethods[0]?.id ?? 0),
         dayOfMonth: recurringDay.value,
         memo: form.value.memo || undefined,
         startDate: form.value.date,
@@ -193,7 +198,7 @@ async function save() {
         memo: form.value.memo || undefined,
         type: form.value.type,
         categoryId: activeCategoryId.value,
-        paymentMethodId: form.value.type === 'Expense' ? form.value.paymentMethodId : 1,
+        paymentMethodId: form.value.type === 'Expense' ? form.value.paymentMethodId : (store.paymentMethods[0]?.id ?? 0),
         isIncludedInTotal: form.value.isIncludedInTotal,
         recurringTransactionId: recurringMaster.id,
       })
@@ -205,7 +210,7 @@ async function save() {
         memo: form.value.memo || undefined,
         type: form.value.type,
         categoryId: activeCategoryId.value,
-        paymentMethodId: form.value.type === 'Expense' ? form.value.paymentMethodId : 1,
+        paymentMethodId: form.value.type === 'Expense' ? form.value.paymentMethodId : (store.paymentMethods[0]?.id ?? 0),
         isIncludedInTotal: form.value.isIncludedInTotal,
       })
     }

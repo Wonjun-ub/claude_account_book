@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import {
   Chart, ArcElement, Tooltip, Legend,
   CategoryScale, LinearScale,
@@ -146,6 +146,12 @@ function renderLine() {
     },
   })
 }
+
+// 컴포넌트 언마운트 시 차트 인스턴스 정리 (canvas 재사용 오류 방지)
+onUnmounted(() => {
+  pieChart?.destroy()
+  lineChart?.destroy()
+})
 
 watch([() => store.currentYear, () => store.currentMonth], loadData)
 onMounted(loadData)

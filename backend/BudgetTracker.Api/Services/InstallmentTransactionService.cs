@@ -31,11 +31,11 @@ public class InstallmentTransactionService : IInstallmentTransactionService
     {
         // 카테고리 존재 확인
         if (!await _repo.CategoryExistsAsync(request.CategoryId))
-            return (null, "존재하지 않는 카테고리입니다.");
+            return (null, "CATEGORY_NOT_FOUND");
 
         // 결제수단 존재 확인
         if (!await _repo.PaymentMethodExistsAsync(request.PaymentMethodId))
-            return (null, "존재하지 않는 결제수단입니다.");
+            return (null, "PAYMENT_METHOD_NOT_FOUND");
 
         // 할부 금액 계산 (floor 방식, 나머지는 1회차에 합산)
         var (monthly, first) = CalcInstallment(request.TotalAmount, request.TotalInstallments);
@@ -86,8 +86,9 @@ public class InstallmentTransactionService : IInstallmentTransactionService
         {
             case "all":
             {
-                // 모든 회차 거래 삭제 + 원부 삭제
+                // 모든 회차 거래 삭제 + 원부 삭제 (포인트 복구 포함)
                 var txs = await _repo.GetTransactionsByMasterAsync(id);
+                RestorePointBalances(txs);
                 await _repo.DeleteTransactionsAsync(txs);
                 await _repo.DeleteAsync(master);
                 break;
@@ -97,6 +98,7 @@ public class InstallmentTransactionService : IInstallmentTransactionService
                 if (!seq.HasValue)
                     return "MISSING_SEQ";
                 var txs = await _repo.GetTransactionsFromSeqAsync(id, seq.Value);
+                RestorePointBalances(txs);
                 await _repo.DeleteTransactionsAsync(txs);
                 break;
             }
@@ -106,7 +108,10 @@ public class InstallmentTransactionService : IInstallmentTransactionService
                     return "MISSING_SEQ";
                 var tx = await _repo.GetTransactionBySeqAsync(id, seq.Value);
                 if (tx is not null)
+                {
+                    RestorePointBalances(new[] { tx });
                     await _repo.DeleteTransactionsAsync(new[] { tx });
+                }
                 break;
             }
             default:
@@ -130,6 +135,19 @@ public class InstallmentTransactionService : IInstallmentTransactionService
     private static DateTime AddMonthsSafe(DateTime date, int months)
     {
         return date.AddMonths(months);
+    }
+
+    // 포인트 결제수단 잔액 복구 (삭제 전 호출)
+    private static void RestorePointBalances(IEnumerable<Transaction> transactions)
+    {
+        foreach (var tx in transactions)
+        {
+            if (tx.PaymentMethod.Type == PaymentMethodType.Point
+                && tx.PaymentMethod.PointBudget is not null)
+            {
+                tx.PaymentMethod.PointBudget.RemainingAmount += tx.Amount;
+            }
+        }
     }
 
     private static InstallmentTransactionResponse MapToResponse(InstallmentTransaction i) => new()

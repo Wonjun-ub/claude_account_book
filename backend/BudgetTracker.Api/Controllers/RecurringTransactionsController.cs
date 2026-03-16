@@ -1,5 +1,6 @@
 using BudgetTracker.Api.DTOs.Requests;
 using BudgetTracker.Api.DTOs.Responses;
+using BudgetTracker.Api.Helpers;
 using BudgetTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
@@ -30,7 +31,7 @@ public class RecurringTransactionsController : ControllerBase
         [FromQuery] int year, [FromQuery] int month)
     {
         if (year <= 0 || month < 1 || month > 12)
-            return BadRequest(new { message = "유효하지 않은 year/month 파라미터입니다." });
+            return BadRequest(new { code = "INVALID_PARAMS", message = "유효하지 않은 year/month 파라미터입니다." });
 
         var result = await _service.GetPendingAsync(year, month);
         return Ok(result);
@@ -44,7 +45,7 @@ public class RecurringTransactionsController : ControllerBase
         var (response, error) = await _service.CreateAsync(request);
 
         if (error is not null)
-            return BadRequest(new { message = error });
+            return BadRequest(new { code = error, message = ErrorMessages.GetMessage(error) });
 
         return CreatedAtAction(nameof(GetAll), new { id = response!.Id }, response);
     }
@@ -62,12 +63,12 @@ public class RecurringTransactionsController : ControllerBase
 
         return error switch
         {
-            "NOT_FOUND" => NotFound(new { message = "반복 지출을 찾을 수 없습니다." }),
-            "MISSING_DATE" => BadRequest(new { message = "date 파라미터가 필요합니다." }),
-            "MISSING_YEAR_MONTH" => BadRequest(new { message = "year, month 파라미터가 필요합니다." }),
-            "INVALID_MODE" => BadRequest(new { message = "유효하지 않은 mode입니다. (all|fromHere|skipMonth)" }),
+            "NOT_FOUND" => NotFound(new { code = error, message = ErrorMessages.GetMessage(error) }),
+            "MISSING_DATE" => BadRequest(new { code = error, message = ErrorMessages.GetMessage(error) }),
+            "MISSING_YEAR_MONTH" => BadRequest(new { code = error, message = ErrorMessages.GetMessage(error) }),
+            "INVALID_MODE" => BadRequest(new { code = error, message = ErrorMessages.GetMessage(error) }),
             null => NoContent(),
-            _ => StatusCode(500, new { message = error })
+            _ => StatusCode(500, new { code = error, message = ErrorMessages.GetMessage(error) })
         };
     }
 }

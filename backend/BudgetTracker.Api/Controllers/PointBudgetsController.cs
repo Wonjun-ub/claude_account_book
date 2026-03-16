@@ -1,5 +1,6 @@
 using BudgetTracker.Api.DTOs.Requests;
 using BudgetTracker.Api.DTOs.Responses;
+using BudgetTracker.Api.Helpers;
 using BudgetTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
@@ -32,7 +33,7 @@ public class PointBudgetsController : ControllerBase
         var result = await _service.GetByIdAsync(id);
 
         if (result is null)
-            return NotFound(new { message = "포인트 예산을 찾을 수 없습니다." });
+            return NotFound(new { code = "NOT_FOUND", message = ErrorMessages.GetMessage("NOT_FOUND") });
 
         return Ok(result);
     }

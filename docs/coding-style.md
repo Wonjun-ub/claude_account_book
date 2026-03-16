@@ -361,12 +361,12 @@ public async Task<InstallmentTransaction> BatchCreateAsync(
 반복 거래 자동 생성(`ApplyRecurringTransactionsAsync`)은 같은 월에 여러 번 호출되어도 거래가 중복 생성되면 안 됩니다.
 
 **구현 원칙**:
-- 생성 전에 `HasTransactionInPeriodAsync(recurringId, periodStart, periodEnd)` 로 해당 기간 내 거래 존재 여부를 확인합니다.
+- 생성 전에 `GetByRecurringAndDateAsync(recurringId, transactionDate)` 로 해당 날짜에 이미 생성된 거래 존재 여부를 확인합니다.
 - 이미 거래가 있으면 skip합니다.
 
 ```csharp
 // ✅ 멱등성 체크 패턴
-bool alreadyCreated = await _recurringRepo.HasTransactionInPeriodAsync(recurring.Id, periodStart, periodEnd);
+bool alreadyCreated = await _transactionRepo.GetByRecurringAndDateAsync(recurring.Id, transactionDate);
 if (alreadyCreated)
     continue; // 이미 생성됨 → 건너뜀
 
@@ -485,7 +485,9 @@ categoriesApi.getAll('IncomeX') // ✅ 컴파일 에러로 조기 발견
 | `PAYMENT_METHOD_NOT_FOUND` | 400 | 존재하지 않는 결제수단 |
 | `NOT_FOUND` | 404 | 리소스 없음 |
 | `INVALID_MODE` | 400 | 유효하지 않은 모드 파라미터 |
-| `MISSING_PARAM` | 400 | 필수 파라미터 누락 |
+| `MISSING_SEQ` | 400 | 회차 번호 파라미터 누락 |
+| `MISSING_DATE` | 400 | date 파라미터 누락 |
+| `MISSING_YEAR_MONTH` | 400 | year/month 파라미터 누락 |
 
 ```csharp
 // ✅ 에러 코드를 포함한 구조화된 응답
