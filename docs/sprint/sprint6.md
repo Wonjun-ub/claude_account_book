@@ -8,7 +8,7 @@
 | 유형 | 3단계: 목업 → 승인 → 구현 |
 | 브랜치 | `sprint6` (Step 3 시작 시 생성) |
 | 기간 | 2026-03-16 시작 |
-| 상태 | 🔄 Step 1 완료 / Step 2 승인 대기 중 |
+| 상태 | 🔄 Step 1 v2 완료 / Step 2 승인 대기 중 |
 | 대상 브랜치 (PR) | `develop` |
 | DB/백엔드 변경 | 있음 — Step 3에서 진행 (`PaymentMethods`에 `BillingCutoffDay`, `PaymentDueDay` 컬럼 추가) |
 | 선행 조건 | Sprint 5 완료 ✅ |
@@ -21,30 +21,36 @@
 
 ---
 
-## Step 1 — 목업 ✅ 완료 (2026-03-16)
+## Step 1 — 목업 ✅ 완료 (2026-03-16, v2)
+
+> **v1 → v2 변경**: 별도 탭(CardBillingView) 방식 → 메인 화면 '예정된 지출' 통합 위젯으로 전면 재설계.
+> 구 파일(`CardBillingView.vue`, `CardBillingCard.vue`, `CardBillingSlot.vue`, `cardBilling.mock.ts`) 삭제됨.
 
 ### 구현 완료 파일
 
 | 파일 | 설명 |
 |------|------|
-| `frontend/src/mocks/cardBilling.mock.ts` | 케이스 A(신한카드, 정산일=15/결제일=25) + 케이스 B(국민카드, 정산일=25/결제일=10) mock 데이터 |
-| `frontend/src/components/CardBillingSlot.vue` | 슬롯 1개 UI: 결제월 레이블, 청구 기간, 결제 예정일, D-day 배지(D-day→빨강/D-7이내→주황/이외→회색), 이용금액, 이용 중/확정 배지 |
-| `frontend/src/components/CardBillingCard.vue` | 카드 헤더(카드명, 정산일/결제일) + 2슬롯 나란히 + 슬롯 클릭 시 드릴다운 패널(카테고리 소계 칩 + 거래 목록) |
-| `frontend/src/views/CardBillingView.vue` | 카드 목록 페이지, 카드 없음 안내 메시지 포함 |
-| `frontend/src/router/index.ts` | `/card-billing` 라우트 추가 |
-| `frontend/src/App.vue` | 하단 탭바 4탭(가계부/통계/카드/설정) 구성 |
+| `frontend/src/mocks/upcoming.mock.ts` | 신한카드(id=1) + 국민카드(id=4), 정산일=15/결제일=25 하드코딩 더미 데이터 |
+| `frontend/src/components/UpcomingWidget.vue` | 예정된 지출 아코디언 위젯 — 반복 예정 섹션 + 카드 결제 예정 섹션 |
+| `frontend/src/views/MockupView.vue` | 홈 탭 — 반복 예정 배너 → UpcomingWidget 교체, 카드 필터 칩, 국민카드 mock 데이터 추가 |
+| `frontend/src/App.vue` | 4탭 → 3탭(가계부/통계/설정) 원복 |
+| `frontend/src/router/index.ts` | `/card-billing` 라우트 제거 |
 
 ### Step 1 구현 상세
 
-**mock 데이터 구조:**
-- `MockCard`: id, name, billingCutoffDay, paymentDueDay, slots(2개)
-- `MockCardSlot`: slotIndex, label, periodFrom, periodTo, paymentDueDate, totalAmount, transactionCount, isConfirmed
-- `calcDDay(paymentDueDate)`: D-N / D-day / D+N 문자열 반환
+**mock 데이터 구조 (`upcoming.mock.ts`):**
+- `MockCardBilling`: id, name, dueDay, dueDate, periodFrom, periodTo, amount, txCount
+- 청구 기간: 전월 16일 ~ 당월 15일 (정산일=15 기준)
+- 결제 예정일: 당월 25일 (결제일=25)
 
-**드릴다운 패널:**
-- 슬롯 클릭 → 슬라이드다운 패널 펼침
-- 카테고리별 소계 칩 (금액 내림차순)
-- 거래 목록 (날짜/카테고리/금액)
+**UpcomingWidget.vue 인터랙션:**
+- 헤더 탭 → 아코디언 펼침/닫힘
+- 반복 항목 [×] 탭 → `recurring-delete` emit → MockupView가 삭제 옵션 바텀 시트 호출
+- 카드 항목 탭 → `filter-card` emit → 위젯 닫힘 + 메인 거래 목록 필터링
+- 카드 필터 칩 [×] → `activeCardFilter = null` → 월별 목록 복원
+
+**거래 필터 로직 (`MockupView.vue`):**
+- 카드 필터 활성 시: `txTransactions` 전체에서 `paymentMethodId + 날짜 범위` 필터 (월 범위 우회)
 
 ---
 
