@@ -1350,7 +1350,8 @@ onUnmounted(() => {
             <div class="bg-gray-700/60 rounded-xl p-3">
               <div class="text-[10px] text-gray-400 mb-1">수입</div>
               <div class="text-blue-400 font-bold text-sm">+{{ mockSummary.totalIncome.toLocaleString() }}원</div>
-              <div class="text-[10px] text-gray-400 mt-1.5 flex items-center gap-0.5">
+              <div class="text-[10px] text-blue-300/60 mt-0.5">기준 100%</div>
+              <div class="text-[10px] text-gray-400 mt-1 flex items-center gap-0.5">
                 <template v-if="prevMonthSummary.totalIncome > 0">
                   전월 대비
                   <span :class="mockSummary.totalIncome >= prevMonthSummary.totalIncome ? 'text-blue-400' : 'text-red-400'" class="ml-0.5">
@@ -1364,7 +1365,8 @@ onUnmounted(() => {
             <div class="bg-gray-700/60 rounded-xl p-3">
               <div class="text-[10px] text-gray-400 mb-1">지출</div>
               <div class="text-red-400 font-bold text-sm">-{{ mockSummary.totalExpense.toLocaleString() }}원</div>
-              <div class="text-[10px] text-gray-400 mt-1.5 flex items-center gap-0.5">
+              <div class="text-[10px] text-red-300/60 mt-0.5">수입 대비 {{ mockSummary.totalIncome > 0 ? Math.round(mockSummary.totalExpense / mockSummary.totalIncome * 100) : 0 }}%</div>
+              <div class="text-[10px] text-gray-400 mt-1 flex items-center gap-0.5">
                 <template v-if="prevMonthSummary.totalExpense > 0">
                   전월 대비
                   <span :class="mockSummary.totalExpense <= prevMonthSummary.totalExpense ? 'text-blue-400' : 'text-red-400'" class="ml-0.5">
@@ -1378,7 +1380,8 @@ onUnmounted(() => {
             <div class="bg-gray-700/60 rounded-xl p-3">
               <div class="text-[10px] text-gray-400 mb-1">저축</div>
               <div class="text-emerald-400 font-bold text-sm">-{{ mockSummary.totalSavings.toLocaleString() }}원</div>
-              <div class="text-[10px] text-gray-400 mt-1.5 flex items-center gap-0.5">
+              <div class="text-[10px] text-emerald-300/60 mt-0.5">수입 대비 {{ mockSummary.totalIncome > 0 ? Math.round(mockSummary.totalSavings / mockSummary.totalIncome * 100) : 0 }}%</div>
+              <div class="text-[10px] text-gray-400 mt-1 flex items-center gap-0.5">
                 <template v-if="prevMonthSummary.totalSavings > 0">
                   전월 대비
                   <span class="text-emerald-400 ml-0.5">
@@ -1392,6 +1395,7 @@ onUnmounted(() => {
             <div class="bg-gray-700/60 rounded-xl p-3">
               <div class="text-[10px] text-gray-400 mb-1">잔액</div>
               <div class="text-white font-bold text-sm">{{ mockSummary.balance.toLocaleString() }}원</div>
+              <div class="text-[10px] text-gray-400/60 mt-0.5">수입 대비 {{ mockSummary.totalIncome > 0 ? Math.round(mockSummary.balance / mockSummary.totalIncome * 100) : 0 }}%</div>
             </div>
           </div>
         </div>
@@ -1432,6 +1436,40 @@ onUnmounted(() => {
           <div class="bg-gray-800 rounded-2xl p-4">
             <h3 class="text-sm font-semibold text-gray-100 mb-4">최근 6개월 추이</h3>
             <canvas ref="trendCanvas" style="max-height:200px"></canvas>
+            <!-- 수입 대비 % 테이블 -->
+            <div class="mt-3 overflow-x-auto">
+              <table class="w-full text-[10px]">
+                <thead>
+                  <tr>
+                    <td class="text-gray-500 pr-2 pb-1 whitespace-nowrap">수입 대비</td>
+                    <td v-for="d in statsTrendData" :key="d.label" class="text-center text-gray-500 pb-1 px-1 whitespace-nowrap">{{ d.label }}</td>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="text-blue-400/70 pr-2 py-0.5 whitespace-nowrap">지출</td>
+                    <td v-for="d in statsTrendData" :key="d.label" class="text-center px-1 py-0.5 whitespace-nowrap"
+                      :class="d.income > 0 ? 'text-red-400' : 'text-gray-600'">
+                      {{ d.income > 0 ? Math.round(d.expense / d.income * 100) + '%' : '-' }}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="text-emerald-400/70 pr-2 py-0.5 whitespace-nowrap">저축</td>
+                    <td v-for="d in statsTrendData" :key="d.label" class="text-center px-1 py-0.5 whitespace-nowrap"
+                      :class="d.income > 0 ? 'text-emerald-400' : 'text-gray-600'">
+                      {{ d.income > 0 ? Math.round(d.savings / d.income * 100) + '%' : '-' }}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="text-gray-400/70 pr-2 py-0.5 whitespace-nowrap">잔액</td>
+                    <td v-for="d in statsTrendData" :key="d.label" class="text-center px-1 py-0.5 whitespace-nowrap"
+                      :class="d.income > 0 ? 'text-gray-300' : 'text-gray-600'">
+                      {{ d.income > 0 ? Math.round((d.income - d.expense - d.savings) / d.income * 100) + '%' : '-' }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
