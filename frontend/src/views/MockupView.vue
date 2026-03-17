@@ -103,11 +103,11 @@ const MOCK_CATEGORIES = [
   { id: 9, name: '비상금', type: 'Savings'  as const, isDefault: true },
 ]
 
-const MOCK_PAYMENT_METHODS = [
-  { id: 1, name: '신한카드',   type: 'Card'  as const, remainingAmount: undefined as number | undefined },
-  { id: 2, name: '현금',       type: 'Cash'  as const, remainingAmount: undefined },
-  { id: 3, name: '네이버페이', type: 'Point' as const, remainingAmount: 45000 },
-  { id: 4, name: '국민카드',   type: 'Card'  as const, remainingAmount: undefined as number | undefined },
+const MOCK_PAYMENT_METHODS: { id: number; name: string; type: 'Cash' | 'CreditCard' | 'DebitCard' | 'Point'; remainingAmount: number | undefined }[] = [
+  { id: 1, name: '신한카드',   type: 'CreditCard', remainingAmount: undefined },
+  { id: 2, name: '현금',       type: 'Cash',       remainingAmount: undefined },
+  { id: 3, name: '네이버페이', type: 'Point',      remainingAmount: 45000    },
+  { id: 4, name: '국민카드',   type: 'CreditCard', remainingAmount: undefined },
 ]
 
 const MOCK_SAVINGS_METHODS = [
@@ -280,7 +280,7 @@ const cardBillingModal = ref<CardFilter | null>(null)
 // 조회 월에 결제일이 있는 슬롯: 청구 기간 = 전월 16일 ~ 당월 15일
 const CARD_CUTOFF_DAY = 15
 const CARD_DUE_DAY = 25
-const cardPaymentMethods = MOCK_PAYMENT_METHODS.filter(m => m.type === 'Card')
+const cardPaymentMethods = MOCK_PAYMENT_METHODS.filter(m => m.type === 'CreditCard' || m.type === 'DebitCard')
 
 const cardBillingSummary = computed((): CardBillingSummary[] => {
   const periodTo   = dayjs(`${mockYear.value}-${String(mockMonth.value).padStart(2, '0')}-${String(CARD_CUTOFF_DAY).padStart(2, '0')}`)
@@ -850,7 +850,7 @@ function onPendingDeleteClick(master: MockRecurringMaster) {
 
 const settingMonthStartDay  = ref(25)
 const settingCategories     = ref(MOCK_CATEGORIES.map(c => ({ ...c })))
-const settingPaymentMethods = ref<{ id: number; name: string; type: 'Cash' | 'Card' | 'Point'; remainingAmount: number | undefined }[]>(
+const settingPaymentMethods = ref<{ id: number; name: string; type: 'Cash' | 'CreditCard' | 'DebitCard' | 'Point'; remainingAmount: number | undefined }[]>(
   MOCK_PAYMENT_METHODS.map(m => ({ ...m }))
 )
 
@@ -871,13 +871,14 @@ function settingDeleteCat(id: number) {
 
 // 결제수단
 const newMethodName = ref('')
-const newMethodType = ref<'Cash' | 'Card' | 'Point'>('Cash')
+const newMethodType = ref<'Cash' | 'CreditCard' | 'DebitCard' | 'Point'>('Cash')
 let   _nextMethodId = 100
 function settingAddMethod() {
   if (!newMethodName.value.trim()) return
   const id = _nextMethodId++
+  const isCard = newMethodType.value === 'CreditCard' || newMethodType.value === 'DebitCard'
   settingPaymentMethods.value.push({ id, name: newMethodName.value.trim(), type: newMethodType.value, remainingAmount: newMethodType.value === 'Point' ? 0 : undefined })
-  if (newMethodType.value === 'Card') settingCardBilling.value.push({ paymentMethodId: id, name: newMethodName.value.trim(), cutoffDay: 15, dueDay: 25 })
+  if (isCard) settingCardBilling.value.push({ paymentMethodId: id, name: newMethodName.value.trim(), cutoffDay: 15, dueDay: 25 })
   newMethodName.value = ''
 }
 function settingDeleteMethod(id: number) {
@@ -887,7 +888,7 @@ function settingDeleteMethod(id: number) {
 
 // 카드 청구 설정
 const settingCardBilling = ref(
-  MOCK_PAYMENT_METHODS.filter(m => m.type === 'Card').map(m => ({ paymentMethodId: m.id, name: m.name, cutoffDay: 15, dueDay: 25 }))
+  MOCK_PAYMENT_METHODS.filter(m => m.type === 'CreditCard' || m.type === 'DebitCard').map(m => ({ paymentMethodId: m.id, name: m.name, cutoffDay: 15, dueDay: 25 }))
 )
 
 // 저축 수단
@@ -924,13 +925,6 @@ function settingDeletePoint(id: number) {
   settingPointBudgets.value = settingPointBudgets.value.filter(p => p.id !== id)
 }
 
-// 반복 거래 관리
-function settingDeleteRecur(id: number) {
-  txTransactions.value       = txTransactions.value.filter(t => t.recurringMasterId !== id)
-  mockRecurringMasters.value = mockRecurringMasters.value.filter(m => m.id !== id)
-  recurSkippedSet.value      = recurSkippedSet.value.filter(k => !k.startsWith(`${id}-`))
-}
-
 // 설정 아코디언
 const settingOpenSections = ref<string[]>([])
 function toggleSection(key: string) {
@@ -940,18 +934,6 @@ function toggleSection(key: string) {
 }
 function isSectionOpen(key: string) {
   return settingOpenSections.value.includes(key)
-}
-
-// 할부 진행 현황
-function instProgress(masterId: number) {
-  const master = mockInstallmentMasters.value.find(m => m.id === masterId)
-  if (!master) return { paid: 0, total: 0 }
-  const paid = txTransactions.value.filter(t => t.installmentMasterId === masterId).length
-  return { paid, total: master.totalInstallments }
-}
-function settingDeleteInst(id: number) {
-  txTransactions.value         = txTransactions.value.filter(t => t.installmentMasterId !== id)
-  mockInstallmentMasters.value = mockInstallmentMasters.value.filter(m => m.id !== id)
 }
 
 // ── 통계 탭 ──────────────────────────────────────────────────────────────────
@@ -1661,8 +1643,8 @@ onUnmounted(() => {
                   <div class="flex items-center gap-2">
                     <span class="text-sm text-gray-200">{{ m.name }}</span>
                     <span class="text-[10px] px-1.5 py-0.5 rounded"
-                      :class="m.type === 'Card' ? 'bg-blue-900/50 text-blue-300' : m.type === 'Point' ? 'bg-yellow-900/50 text-yellow-300' : 'bg-gray-600/60 text-gray-300'">
-                      {{ m.type === 'Card' ? '카드' : m.type === 'Point' ? '포인트' : '현금' }}
+                      :class="m.type === 'CreditCard' || m.type === 'DebitCard' ? 'bg-blue-900/50 text-blue-300' : m.type === 'Point' ? 'bg-yellow-900/50 text-yellow-300' : 'bg-gray-600/60 text-gray-300'">
+                      {{ m.type === 'CreditCard' ? '신용카드' : m.type === 'DebitCard' ? '체크카드' : m.type === 'Point' ? '포인트' : '현금' }}
                     </span>
                   </div>
                   <button @click="settingDeleteMethod(m.id)" class="text-gray-500 hover:text-red-400 transition-colors p-1">
@@ -1675,7 +1657,8 @@ onUnmounted(() => {
                   class="flex-1 bg-gray-700 text-gray-100 text-sm rounded-xl px-3 py-2 placeholder-gray-500 outline-none" />
                 <select v-model="newMethodType" class="bg-gray-700 text-gray-300 text-xs rounded-xl px-2 py-2 outline-none">
                   <option value="Cash">현금</option>
-                  <option value="Card">카드</option>
+                  <option value="CreditCard">신용카드</option>
+                  <option value="DebitCard">체크카드</option>
                   <option value="Point">포인트</option>
                 </select>
                 <button @click="settingAddMethod" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-2 rounded-xl transition-colors">추가</button>
@@ -1788,79 +1771,6 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <!-- 반복 거래 관리 -->
-          <div class="bg-gray-800 rounded-2xl overflow-hidden">
-            <button @click="toggleSection('recurring')" class="w-full flex items-center justify-between px-4 py-3.5">
-              <div class="flex items-center gap-3">
-                <span class="text-sm font-semibold text-gray-100">반복 거래</span>
-                <span class="text-xs text-gray-400">{{ mockRecurringMasters.length }}건</span>
-              </div>
-              <svg class="w-4 h-4 text-gray-400 transition-transform duration-200" :class="isSectionOpen('recurring') ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-            </button>
-            <div v-show="isSectionOpen('recurring')" class="px-4 pb-4 border-t border-gray-700/50">
-              <div v-if="mockRecurringMasters.length === 0" class="py-4 text-center text-gray-500 text-sm">등록된 반복 거래 없음</div>
-              <div v-else class="space-y-2 mt-3">
-                <div v-for="r in mockRecurringMasters" :key="r.id"
-                  class="bg-gray-700/60 rounded-xl px-3 py-2.5 flex items-center gap-3">
-                  <div class="w-1.5 h-8 rounded-full flex-shrink-0"
-                    :class="r.type === 'Income' ? 'bg-blue-400' : r.type === 'Savings' ? 'bg-emerald-400' : 'bg-red-400'"></div>
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-1.5 flex-wrap">
-                      <span class="text-sm text-gray-200">{{ r.categoryName }}</span>
-                      <span v-if="r.memo" class="text-[10px] text-gray-500">· {{ r.memo }}</span>
-                      <span v-if="!r.isActive" class="text-[10px] text-gray-600 bg-gray-700 px-1.5 py-0.5 rounded">비활성</span>
-                    </div>
-                    <div class="text-[11px] text-gray-400 mt-0.5">
-                      매월 {{ r.dayOfMonth }}일 ·
-                      <span :class="r.type === 'Income' ? 'text-blue-400' : r.type === 'Savings' ? 'text-emerald-400' : 'text-red-400'">
-                        {{ r.type === 'Income' ? '+' : '-' }}{{ r.amount.toLocaleString() }}원
-                      </span>
-                      <span v-if="r.endDate" class="text-gray-500"> · ~{{ r.endDate }}</span>
-                    </div>
-                  </div>
-                  <button @click="settingDeleteRecur(r.id)" class="text-gray-500 hover:text-red-400 transition-colors p-1 flex-shrink-0">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 할부 거래 관리 -->
-          <div class="bg-gray-800 rounded-2xl overflow-hidden">
-            <button @click="toggleSection('installment')" class="w-full flex items-center justify-between px-4 py-3.5">
-              <div class="flex items-center gap-3">
-                <span class="text-sm font-semibold text-gray-100">할부 거래</span>
-                <span class="text-xs text-gray-400">{{ mockInstallmentMasters.length }}건</span>
-              </div>
-              <svg class="w-4 h-4 text-gray-400 transition-transform duration-200" :class="isSectionOpen('installment') ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-            </button>
-            <div v-show="isSectionOpen('installment')" class="px-4 pb-4 border-t border-gray-700/50">
-              <div v-if="mockInstallmentMasters.length === 0" class="py-4 text-center text-gray-500 text-sm">진행 중인 할부 없음</div>
-              <div v-else class="space-y-2 mt-3">
-                <div v-for="inst in mockInstallmentMasters" :key="inst.id"
-                  class="bg-gray-700/60 rounded-xl px-3 py-2.5 flex items-center gap-3">
-                  <div class="w-1.5 h-8 rounded-full flex-shrink-0 bg-orange-400"></div>
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-1.5 flex-wrap">
-                      <span class="text-sm text-gray-200">{{ inst.categoryName }}</span>
-                      <span v-if="inst.memo" class="text-[10px] text-gray-500">· {{ inst.memo }}</span>
-                      <span class="text-[10px] text-orange-300 bg-orange-900/40 px-1.5 py-0.5 rounded">
-                        {{ instProgress(inst.id).paid }}/{{ instProgress(inst.id).total }}회차
-                      </span>
-                    </div>
-                    <div class="text-[11px] text-gray-400 mt-0.5">
-                      총 {{ inst.totalAmount.toLocaleString() }}원 · 월 {{ inst.monthlyAmount.toLocaleString() }}원
-                      · <span class="text-orange-300">{{ instProgress(inst.id).total - instProgress(inst.id).paid }}회 남음</span>
-                    </div>
-                  </div>
-                  <button @click="settingDeleteInst(inst.id)" class="text-gray-500 hover:text-red-400 transition-colors p-1 flex-shrink-0">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
           <div class="pb-4"></div>
 
         </div><!-- /스크롤 영역 -->
