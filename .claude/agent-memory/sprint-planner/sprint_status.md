@@ -92,18 +92,34 @@ type: project
 - 수동 검증 미완료: docker compose 환경에서 전체 플로우 검증 필요 (deploy.md 참조)
 
 ## Sprint 6
-- 상태: ⬜ 예정 (Sprint 4 완료 + 카드 결제 현황 요구사항 확정 후)
-- 유형: 구현
+- 상태: ✅ 완료 (2026-03-16)
+- 유형: 목업
 - 브랜치: `sprint6`
-- 목표: 카드 결제 현황 탭 신규 구현 (DB + 백엔드 + 프론트 연동)
+- 목표: 카드 결제 현황 + 홈 탭 UI 개선 목업 확정
 - 계획 문서: `docs/sprint/sprint6.md`
-- DB 스키마 변경: PaymentMethods에 BillingCutoffDay, PaymentDueDay 추가
+- DB 스키마 변경: 없음
 
-**구현 범위:**
-- T34: DB 마이그레이션 (카드 청구 설정 컬럼)
-- T35: 카드 청구 설정 API (기존 PUT 확장)
-- T36: 카드 결제 현황 백엔드 API (2슬롯 계산 — 케이스 A/B)
-- T37: 프론트엔드 mock → 실제 API 교체
+**달성 사항:**
+- Step 1: 홈 탭 목업 전체 개선 v3 (다크모드, 저축 수단, 필터 아코디언, 카드 결제 위젯, 반복 배너 개선)
+- Step 2: UI/UX 승인 완료 (2026-03-16)
+- 카드 결제 현황 실서비스 구현은 Sprint 9로 이관
 
-**Why:** 목업 → 구현 순서 원칙에 따라 Sprint 4(목업)에서 두 기능을 동시 검증 후, Sprint 5(할부), Sprint 6(카드 현황) 순으로 실제 구현
-**How to apply:** DB 스키마 변경 있는 스프린트(5, 6)는 반드시 로컬 PostgreSQL 검증 후 Supabase 적용
+## Sprint 7
+- 상태: ✅ 완료 (2026-03-17)
+- 유형: 목업
+- 브랜치: `sprint7`
+- 목표: MockupView 통계 탭 UI/UX 목업 확정
+- 계획 문서: `docs/sprint/sprint7.md`
+- DB 스키마 변경: 없음
+- 머지: sprint7 → develop (commit: 7353d16)
+
+**달성 사항:**
+- T38: 통계 탭 다크모드 목업 (카테고리 도넛 차트, 수입/지출/저축 탭, 전월 비교 4열 카드)
+- T39: 최근 6개월 막대 추이 (수입/지출/저축 3색, 다크모드 그리드)
+- 추가 개선: 수입 대비 %, 잔액 바, 범례 비율 표시
+- Step 2 승인 완료 (2026-03-17)
+- npm run build 성공 (TypeScript 오류 0건)
+
+**주의사항:**
+- MockupView.vue 파일이 계속 증가 중 → Sprint 9 실서비스 이관 시 각 View로 분리 예정
+- 다음 사용 가능한 스프린트 번호: Sprint 8 (설정 화면 목업)
