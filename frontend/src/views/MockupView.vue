@@ -1420,6 +1420,7 @@ onUnmounted(() => {
                   <div class="w-2.5 h-2.5 rounded-full flex-shrink-0" :style="`background-color:${CHART_COLORS[i % CHART_COLORS.length]}`"></div>
                   <span class="text-xs text-gray-300 truncate flex-1">{{ item.name }}</span>
                   <span class="text-xs text-gray-100 font-medium flex-shrink-0">{{ item.amount.toLocaleString() }}</span>
+                  <span class="text-[10px] text-gray-400 flex-shrink-0">{{ Math.round(item.amount / statsCategoryData.reduce((s, d) => s + d.amount, 0) * 100) }}%</span>
                 </div>
               </div>
             </div>
