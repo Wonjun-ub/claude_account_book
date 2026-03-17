@@ -859,11 +859,10 @@ const settingPaymentMethods = ref<{ id: number; name: string; type: 'Cash' | 'Ca
 // 카테고리
 const settingCatFilter = ref<'Expense' | 'Income' | 'Savings'>('Expense')
 const newCatName       = ref('')
-const newCatType       = ref<'Expense' | 'Income' | 'Savings'>('Expense')
 let   _nextCatId       = 100
 function settingAddCat() {
   if (!newCatName.value.trim()) return
-  settingCategories.value.push({ id: _nextCatId++, name: newCatName.value.trim(), type: newCatType.value, isDefault: false })
+  settingCategories.value.push({ id: _nextCatId++, name: newCatName.value.trim(), type: settingCatFilter.value, isDefault: false })
   newCatName.value = ''
 }
 function settingDeleteCat(id: number) {
@@ -1641,11 +1640,6 @@ onUnmounted(() => {
               <div class="flex gap-2">
                 <input v-model="newCatName" placeholder="카테고리명" @keyup.enter="settingAddCat"
                   class="flex-1 bg-gray-700 text-gray-100 text-sm rounded-xl px-3 py-2 placeholder-gray-500 outline-none" />
-                <select v-model="newCatType" class="bg-gray-700 text-gray-300 text-xs rounded-xl px-2 py-2 outline-none">
-                  <option value="Expense">지출</option>
-                  <option value="Income">수입</option>
-                  <option value="Savings">저축</option>
-                </select>
                 <button @click="settingAddCat" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-2 rounded-xl transition-colors">추가</button>
               </div>
             </div>
