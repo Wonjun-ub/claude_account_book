@@ -1052,10 +1052,9 @@ function renderTrend() {
     data: {
       labels: data.map(d => d.label),
       datasets: [
-        { label: '수입',  data: data.map(d => d.income),                          backgroundColor: 'rgba(96,165,250,0.85)',   borderRadius: 3 },
-        { label: '지출',  data: data.map(d => d.expense),                         backgroundColor: 'rgba(248,113,113,0.85)',  borderRadius: 3 },
-        { label: '저축',  data: data.map(d => d.savings),                         backgroundColor: 'rgba(52,211,153,0.85)',   borderRadius: 3 },
-        { label: '잔액',  data: data.map(d => d.income - d.expense - d.savings),  backgroundColor: 'rgba(156,163,175,0.60)',  borderRadius: 3 },
+        { label: '수입', data: data.map(d => d.income),  backgroundColor: 'rgba(96,165,250,0.85)',  borderRadius: 3 },
+        { label: '지출', data: data.map(d => d.expense), backgroundColor: 'rgba(248,113,113,0.85)', borderRadius: 3 },
+        { label: '저축', data: data.map(d => d.savings), backgroundColor: 'rgba(52,211,153,0.85)',  borderRadius: 3 },
       ],
     },
     options: {
