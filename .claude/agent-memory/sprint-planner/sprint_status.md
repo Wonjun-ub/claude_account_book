@@ -145,4 +145,28 @@ type: project
 
 **주의사항:**
 - MockupView.vue 파일이 대형화 — Sprint 9 실서비스 이관 시 각 View로 분리 필수
-- 다음 사용 가능한 스프린트 번호: Sprint 9 (전체 실서비스 구현 — Dexie.js 기반)
+
+## Sprint 9
+- 상태: ✅ 완료 (2026-03-17)
+- 유형: 구현 (Local-first)
+- 브랜치: `sprint9`
+- 목표: MockupView 전체 기능을 Dexie.js 기반 실서비스로 이관 (HomeView + StatsView + SettingsView)
+- 계획 문서: `docs/sprint/sprint9.md`
+- DB/백엔드 변경: 없음 (IndexedDB 기반, 백엔드 완전 제거)
+- PR: sprint9 → develop
+
+**달성 사항:**
+- T34: Pinia stores 4개 구현 (useSettingsStore, useCategoryStore, usePaymentMethodStore, useTransactionStore)
+- T35: 거래 CRUD — 단건/할부/반복 생성·수정·삭제 (db.ts 헬퍼 활용)
+- T36: 카드 결제 현황 로컬 계산 (cardBilling.ts 유틸 신규)
+- T37: 반복 거래 자동 적용 (loadTransactions 내 applyRecurringForMonth 호출)
+- T45~T47: 저축 수단/설정 CRUD, 포인트 잔액 차감/복구 (Dexie 트랜잭션 보장)
+- T48~T50: HomeView/StatsView/SettingsView 전면 재작성 (다크모드)
+- T51: PWA 아이콘 생성 (gray-900 배경, gen-icons.cjs 스크립트)
+- Vitest 30건 추가 (총 84건 PASS): CRUD, 포인트 rollback, cardBilling 유틸
+- npm run build TypeScript 오류 0건
+
+**주의사항:**
+- frontend/src/api/ 디렉토리 미삭제 — 추후 별도 정리 필요
+- 수동 검증(로컬 직접 실행, PWA Manifest) 미완료 — deploy.md 참조
+- 다음 스프린트 번호: Sprint 10

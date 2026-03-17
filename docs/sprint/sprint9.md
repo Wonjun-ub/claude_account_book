@@ -7,8 +7,8 @@
 | 스프린트 번호 | Sprint 9 |
 | 유형 | 구현 (Local-first) |
 | 브랜치 | `sprint9` (sprint8 기준 분기) |
-| 기간 | 2026-03-17 ~ |
-| 상태 | ⬜ 대기 |
+| 기간 | 2026-03-17 |
+| 상태 | ✅ 완료 (2026-03-17) |
 | 대상 브랜치 (PR) | `develop` |
 | DB/백엔드 변경 | **없음** — IndexedDB(Dexie.js) 기반, 백엔드 완전 제거 |
 | 선행 조건 | Sprint 8 Step 2 승인 ✅ (2026-03-17) |
@@ -558,20 +558,20 @@ npm run build
 
 ## 완료 기준 (Definition of Done)
 
-- ⬜ T34: Pinia stores 4개 구현 완료 (useSettingsStore, useCategoryStore, usePaymentMethodStore, useTransactionStore)
-- ⬜ T35: 거래 CRUD 완료 (단건/할부/반복 생성·수정·삭제)
-- ⬜ T36: 카드 결제 현황 로컬 계산 완료
-- ⬜ T37: 반복 거래 자동 적용 완료
-- ⬜ T45: 저축 수단 CRUD 완료
-- ⬜ T46: 설정 CRUD 완료 (monthStartDay, 카테고리, 결제수단)
-- ⬜ T47: 포인트 잔액 자동 차감/복구 완료
-- ⬜ T48: HomeView Dexie 연동 완료 (다크모드)
-- ⬜ T49: StatsView Dexie 연동 완료 (다크모드)
-- ⬜ T50: SettingsView Dexie 연동 완료 (다크모드)
-- ⬜ T51: PWA 아이콘 생성 완료
-- ⬜ Vitest 전체 케이스 PASS
-- ⬜ `npm run build` TypeScript 오류 0건
-- ⬜ `sprint9 → develop` PR 생성
+- ✅ T34: Pinia stores 4개 구현 완료 (useSettingsStore, useCategoryStore, usePaymentMethodStore, useTransactionStore)
+- ✅ T35: 거래 CRUD 완료 (단건/할부/반복 생성·수정·삭제)
+- ✅ T36: 카드 결제 현황 로컬 계산 완료 (cardBilling.ts 유틸 신규)
+- ✅ T37: 반복 거래 자동 적용 완료 (loadTransactions 내 applyRecurringForMonth 호출)
+- ✅ T45: 저축 수단 CRUD 완료 (paymentMethod.ts에 통합)
+- ✅ T46: 설정 CRUD 완료 (monthStartDay, 카테고리, 결제수단)
+- ✅ T47: 포인트 잔액 자동 차감/복구 완료 (Dexie 트랜잭션 보장)
+- ✅ T48: HomeView Dexie 연동 완료 (다크모드)
+- ✅ T49: StatsView Dexie 연동 완료 (다크모드)
+- ✅ T50: SettingsView Dexie 연동 완료 (다크모드)
+- ✅ T51: PWA 아이콘 생성 완료 (gray-900 배경, 192×192 / 512×512)
+- ✅ Vitest 84 케이스 전체 PASS (기존 54 + 신규 30)
+- ✅ `npm run build` TypeScript 오류 0건
+- ✅ `sprint9 → develop` PR 생성
 
 ---
 
@@ -613,4 +613,15 @@ npm run build
 
 ## 스프린트 회고
 
-> 완료 후 작성 예정
+### 달성 사항
+
+- Sprint 1~8에서 축적된 모든 목업/로직을 Dexie.js 기반 실서비스로 일괄 이관 완료
+- types/index.ts를 구 API DTO에서 Dexie 스키마 기준으로 전면 재작성하여 타입 정합성 확보
+- Vitest 테스트 30건 추가 (총 84건): calcInstallment, seedDatabase 멱등성, 단건/할부/반복 CRUD, 포인트 잔액 차감/복구/부족 rollback, 할부 삭제 3가지 모드, cardBilling 유틸
+- gen-icons.cjs 스크립트로 순수 Node.js PNG 생성 (외부 도구 의존 없음)
+
+### 주의사항
+
+- `frontend/src/api/` 디렉토리는 스코프 아웃으로 미삭제 — 추후 별도 정리 필요
+- MockupView.vue는 DEV 전용 파일로 유지 (production 빌드 제외)
+- 수동 검증(로컬 직접 실행, PWA Manifest 확인) 은 deploy.md 참조

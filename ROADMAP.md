@@ -324,38 +324,39 @@ PRD의 모든 비즈니스 로직(MonthStartDay, 할부 계산, 반복 거래, �
 
 ---
 
-## Phase 9 — Sprint 9: Local-first 실서비스 구현 ⬜ 대기
+## Phase 9 — Sprint 9: Local-first 실서비스 구현 ✅ 완료
 
 **유형**: 구현 (Local-first)
 **목표**: 전체 목업 확정 후 Dexie.js 기반 실서비스 일괄 구현 (백엔드 없음)
-**브랜치**: `sprint9` (시작 시 생성)
+**브랜치**: `sprint9`
+**완료일**: 2026-03-17
 **선행 조건**: Sprint 8 Step 2 승인 (설정 목업 최종 확정)
 
 ### Dexie Store 구현
 
 | ID | 태스크 | 상태 | 설명 |
 |----|--------|------|------|
-| T34 | Pinia stores 구현 | ⬜ | useTransactionStore, useCategoryStore, useSettingsStore 등 |
-| T35 | 거래 CRUD (Dexie) | ⬜ | 단건/할부/반복 생성·수정·삭제 — db.ts 헬퍼 활용 |
-| T36 | 카드 결제 현황 (로컬 계산) | ⬜ | 카드 청구 기간 내 거래 합산 — getMonthPeriod 응용 |
-| T37 | 반복 거래 자동 적용 | ⬜ | 월 진입 시 applyRecurringForMonth() 호출 |
+| T34 | Pinia stores 구현 | ✅ | useTransactionStore, useCategoryStore, useSettingsStore, usePaymentMethodStore 구현 완료 |
+| T35 | 거래 CRUD (Dexie) | ✅ | 단건/할부/반복 생성·수정·삭제 — db.ts 헬퍼 활용 |
+| T36 | 카드 결제 현황 (로컬 계산) | ✅ | 카드 청구 기간 내 거래 합산 — cardBilling.ts 유틸 신규 |
+| T37 | 반복 거래 자동 적용 | ✅ | 월 진입 시 applyRecurringForMonth() 호출 |
 
 ### 저축 수단 / 설정
 
 | ID | 태스크 | 상태 | 설명 |
 |----|--------|------|------|
-| T45 | 저축 수단 CRUD (Dexie) | ⬜ | db.savingsMethods 기반 |
-| T46 | 설정 CRUD (Dexie) | ⬜ | monthStartDay, 카테고리, 결제수단, 포인트 예산 |
-| T47 | 포인트 잔액 자동 차감 | ⬜ | 지출 저장 시 paymentMethod.remainingBudget 갱신 |
+| T45 | 저축 수단 CRUD (Dexie) | ✅ | db.savingsMethods 기반 |
+| T46 | 설정 CRUD (Dexie) | ✅ | monthStartDay, 카테고리, 결제수단, 포인트 예산 |
+| T47 | 포인트 잔액 자동 차감 | ✅ | 지출 저장 시 paymentMethod.remainingBudget 갱신, 삭제 시 복구 |
 
 ### 화면 연동
 
 | ID | 태스크 | 상태 | 설명 |
 |----|--------|------|------|
-| T48 | HomeView — Dexie 연동 | ⬜ | MockupView → HomeView 이관, mock 데이터 제거 |
-| T49 | StatsView — Dexie 연동 | ⬜ | 목업 기반 StatsView 완성 |
-| T50 | SettingsView — Dexie 연동 | ⬜ | 목업 기반 SettingsView 완성 |
-| T51 | PWA 아이콘 생성 | ⬜ | public/icons/icon-192.png, icon-512.png |
+| T48 | HomeView — Dexie 연동 | ✅ | MockupView → HomeView 이관, 다크모드 적용 |
+| T49 | StatsView — Dexie 연동 | ✅ | 로컬 계산 기반 StatsView 완성, 다크모드 적용 |
+| T50 | SettingsView — Dexie 연동 | ✅ | MockupView 설정 탭 UI 이식, 다크모드 적용 |
+| T51 | PWA 아이콘 생성 | ✅ | public/icons/icon-192.png, icon-512.png (gray-900 배경) |
 
 ---
 
@@ -498,4 +499,4 @@ PRD의 모든 비즈니스 로직(MonthStartDay, 할부 계산, 반복 거래, �
 | Sprint 6 | 목업 | ✅ 완료 | 홈 탭 전체 UX 개선 목업 v3 (다크모드, 저축 수단, 필터 아코디언, 카드 결제 위젯, 반복 배너 개선) | 2026-03-16 |
 | Sprint 7 | 목업 | ✅ 완료 | 통계 탭 목업 (T38: 도넛 차트/전월 비교, T39: 6개월 막대 추이) + 추가 개선 (수입 대비 %, 잔액 바, 범례 비율 표시) | 2026-03-17 |
 | Sprint 8 | 목업 | ✅ 완료 | 설정 탭 목업 (T40: 카드 청구 인라인, T41: 저축 수단, T43: 카테고리 탭, T44: 결제수단) + 할부/반복 수정 UX 바텀 시트 통일 + 반복 과거 회차 버그 수정 | 2026-03-17 |
-| Sprint 9 | 구현 | ⬜ 대기 | 전체 실서비스 구현 — 카드 결제 현황 + 저축 수단 + 통계/설정 UI 연동 (Sprint 8 완료 후 시작) | — |
+| Sprint 9 | 구현 | ✅ 완료 | 전체 실서비스 구현 — Pinia stores 4개 + 거래 CRUD + 카드 결제 현황 + 저축 수단 + 통계/설정 UI 연동 + PWA 아이콘 + Vitest 84 PASS | 2026-03-17 |
