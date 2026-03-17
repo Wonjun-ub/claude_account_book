@@ -8,3 +8,6 @@ if (!(nodeCrypto as any).getRandomValues) {
 if (!globalThis.crypto) {
   Object.defineProperty(globalThis, 'crypto', { value: webcrypto })
 }
+
+// fake-indexeddb: Dexie 테스트용 IndexedDB 폴리필
+import 'fake-indexeddb/auto'
