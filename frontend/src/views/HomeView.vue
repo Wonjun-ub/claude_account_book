@@ -253,6 +253,11 @@ function groupByDate(txs: Transaction[]) {
   <!-- 화면 전체를 채우는 flex 컬럼 컨테이너 -->
   <div class="h-full flex flex-col max-w-lg mx-auto">
 
+    <!-- 버전 배너 -->
+    <div class="flex-shrink-0 bg-blue-700 text-blue-200 text-[10px] text-center py-1 tracking-wide">
+      v1.0 · 오프라인 모드만 동작
+    </div>
+
     <!-- ── 고정 헤더 영역 ── -->
     <div class="flex-shrink-0">
       <!-- 월 네비게이터 + 요약 카드 -->

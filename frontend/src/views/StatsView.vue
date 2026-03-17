@@ -160,6 +160,10 @@ onMounted(loadData)
 
 <template>
   <div class="h-full flex flex-col max-w-lg mx-auto">
+    <!-- 버전 배너 -->
+    <div class="flex-shrink-0 bg-blue-700 text-blue-200 text-[10px] text-center py-1 tracking-wide">
+      v1.0 · 오프라인 모드만 동작
+    </div>
     <!-- 고정 헤더 -->
     <div class="flex-shrink-0 bg-blue-600 text-white px-4 pt-10 pb-4">
       <div class="flex items-center justify-between">

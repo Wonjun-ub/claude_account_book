@@ -23,7 +23,7 @@ export const mockCardBillings: MockCardBilling[] = [
     periodFrom: '2026-02-16',
     periodTo: '2026-03-15',
     amount: 287000,
-    txCount: 12,
+    txCount: 6,
   },
   {
     id: 4,
@@ -33,6 +33,6 @@ export const mockCardBillings: MockCardBilling[] = [
     periodFrom: '2026-02-16',
     periodTo: '2026-03-15',
     amount: 142000,
-    txCount: 5,
+    txCount: 3,
   },
 ]
