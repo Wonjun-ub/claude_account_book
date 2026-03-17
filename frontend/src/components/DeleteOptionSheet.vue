@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import type { Transaction } from '@/types'
+import type { TransactionView } from '@/types'
 import { useDateFormat } from '@/composables/useDateFormat'
 
 const props = defineProps<{
   type: 'installment' | 'recurring'
-  transaction: Transaction
+  transaction: TransactionView
 }>()
 
 const emit = defineEmits<{
@@ -71,9 +71,7 @@ const { formatYearMonth } = useDateFormat()
       <template v-else>
         <div class="px-5 pb-2">
           <p class="text-sm font-semibold text-gray-800">반복 삭제</p>
-          <p class="text-xs text-gray-400 mt-0.5">
-            {{ transaction.categoryName }}
-          </p>
+          <p class="text-xs text-gray-400 mt-0.5">{{ transaction.categoryName }}</p>
         </div>
         <div class="px-4 pb-6 space-y-2">
           <button
