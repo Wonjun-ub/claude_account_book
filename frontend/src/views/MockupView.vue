@@ -613,8 +613,42 @@ function formSaveMock() {
         recurringMasterId: undefined,
       })
     }
+  } else if (editingTxId.value !== null && editingInstMasterId.value !== undefined) {
+    // ── 할부 전체 회차 수정: 마스터 + 연결된 모든 거래 갱신
+    const months  = formInstallmentMonths.value ?? 1
+    const preview = calcMockInstallment(amount, months)
+    const mIdx    = mockInstallmentMasters.value.findIndex(m => m.id === editingInstMasterId.value)
+    if (mIdx !== -1) {
+      mockInstallmentMasters.value[mIdx] = {
+        ...mockInstallmentMasters.value[mIdx]!,
+        totalAmount: amount,
+        monthlyAmount: preview.monthlyAmount,
+        firstMonthAmount: preview.firstMonthAmount,
+        totalInstallments: months,
+        categoryId: formCategoryId.value,
+        categoryName: catName,
+        paymentMethodId: methodId,
+        paymentMethodName: methodName,
+        memo: formMemo.value || undefined,
+      }
+      const m = mockInstallmentMasters.value[mIdx]!
+      txTransactions.value = txTransactions.value.map(t => {
+        if (t.installmentMasterId !== editingInstMasterId.value) return t
+        return {
+          ...t,
+          amount: t.installmentSequence === 1 ? m.firstMonthAmount : m.monthlyAmount,
+          categoryId: formCategoryId.value,
+          categoryName: catName,
+          paymentMethodId: methodId,
+          paymentMethodName: methodName,
+          memo: formMemo.value || undefined,
+          isIncludedInTotal: formIsIncluded.value,
+        }
+      })
+    }
+    editingInstMasterId.value = undefined
   } else if (editingTxId.value !== null) {
-    // ── 수정
+    // ── 단건 수정 (이번 달만, 또는 일반 거래)
     const idx = txTransactions.value.findIndex(t => t.id === editingTxId.value)
     if (idx !== -1) {
       const existing = txTransactions.value[idx]!
@@ -658,9 +692,10 @@ function formSaveMock() {
 
 // ── 거래 수정/삭제 ────────────────────────────────────────────────────────────
 
-// 할부 상세 팝업
-const showInstDetailPopup = ref(false)
-const instDetailTx        = ref<MockTxRecord | null>(null)
+// 할부 수정 유형 선택 시트
+const showInstEditSheet    = ref(false)
+const instEditTx           = ref<MockTxRecord | null>(null)
+const editingInstMasterId  = ref<number | undefined>(undefined)
 
 // 반복 수정 유형 선택 시트
 const showRecurEditSheet = ref(false)
@@ -668,50 +703,49 @@ const recurEditTx        = ref<MockTxRecord | null>(null)
 
 function openEdit(tx: MockTxRecord) {
   if (tx.installmentMasterId !== undefined) {
-    // 할부 → 상세 팝업 먼저
-    instDetailTx.value = tx
-    showInstDetailPopup.value = true
+    instEditTx.value = tx
+    showInstEditSheet.value = true
     return
   }
   if (tx.recurringMasterId !== undefined) {
-    // 반복 → 수정 유형 선택 시트
     recurEditTx.value = tx
     showRecurEditSheet.value = true
     return
   }
-  _openEditModal(tx, false)
+  _openEditModal(tx, false, false)
 }
 
-// 할부 상세 팝업에서 "수정" 클릭 → 편집 모달
-function openEditFromInstDetail() {
-  if (!instDetailTx.value) return
-  showInstDetailPopup.value = false
-  _openEditModal(instDetailTx.value, false)
+// 할부 "이번 달만 수정" — 단건만 수정, 마스터/다른 회차 유지
+function openEditInstThisMonth() {
+  if (!instEditTx.value) return
+  showInstEditSheet.value = false
+  editingInstMasterId.value = undefined
+  _openEditModal(instEditTx.value, false, true)
 }
 
-// 할부 상세 팝업에서 "삭제" 클릭 → 기존 삭제 시트
-function openDeleteFromInstDetail() {
-  if (!instDetailTx.value) return
-  showInstDetailPopup.value = false
-  instDeleteTx.value = instDetailTx.value
-  showInstDeleteSheet.value = true
+// 할부 "전체 회차 수정" — 마스터 업데이트 + 연결 거래 전체 갱신
+function openEditInstAll() {
+  if (!instEditTx.value) return
+  showInstEditSheet.value = false
+  editingInstMasterId.value = instEditTx.value.installmentMasterId
+  _openEditModal(instEditTx.value, false, false)
 }
 
 // 반복 "이번 달만 수정" — 이 거래 단건만 수정 (원부 유지)
 function openEditRecurThisMonth() {
   if (!recurEditTx.value) return
   showRecurEditSheet.value = false
-  _openEditModal(recurEditTx.value, true)
+  _openEditModal(recurEditTx.value, true, false)
 }
 
 // 반복 "원부 수정" — 마스터 데이터로 로드 (이후 회차 반영)
 function openEditRecurMaster() {
   if (!recurEditTx.value) return
   showRecurEditSheet.value = false
-  _openEditModal(recurEditTx.value, false)
+  _openEditModal(recurEditTx.value, false, false)
 }
 
-function _openEditModal(tx: MockTxRecord, recurThisMonthOnly: boolean) {
+function _openEditModal(tx: MockTxRecord, recurThisMonthOnly: boolean, instThisMonthOnly: boolean) {
   editingTxId.value = tx.id
   // formType 설정 전에 method를 먼저 세팅 — watch(formType) 발화 시 덮어쓰기 방지
   if (tx.type === 'Savings') {
@@ -731,11 +765,11 @@ function _openEditModal(tx: MockTxRecord, recurThisMonthOnly: boolean) {
   savedCatByType.Income  = tx.type === 'Income'  ? tx.categoryId : 0
   savedCatByType.Savings = tx.type === 'Savings' ? tx.categoryId : 0
 
-  // 할부 거래 → 마스터에서 총금액/개월수 로드
+  // 할부: 전체 회차 수정이면 마스터 총액으로, 이번 달만이면 단건 금액으로 로드
   const instMaster = tx.installmentMasterId
     ? mockInstallmentMasters.value.find(m => m.id === tx.installmentMasterId)
     : undefined
-  if (instMaster) {
+  if (instMaster && !instThisMonthOnly) {
     formIsInstallment.value = true
     formAmount.value = instMaster.totalAmount.toLocaleString()
     formInstallmentMonths.value = instMaster.totalInstallments
@@ -745,7 +779,7 @@ function _openEditModal(tx: MockTxRecord, recurThisMonthOnly: boolean) {
     formInstallmentMonths.value = undefined
   }
 
-  // 반복 거래 → 이번 달만 수정이면 일반 거래처럼, 원부 수정이면 마스터 로드
+  // 반복: 이번 달만이면 단건, 원부 수정이면 마스터 로드
   if (!recurThisMonthOnly) {
     const recMaster = tx.recurringMasterId
       ? mockRecurringMasters.value.find(m => m.id === tx.recurringMasterId)
@@ -760,7 +794,6 @@ function _openEditModal(tx: MockTxRecord, recurThisMonthOnly: boolean) {
       formRecurringEndDate.value = ''
     }
   } else {
-    // 이번 달만 수정: 반복 원부 연결 해제하여 단건처럼 저장
     formIsRecurring.value = false
     formRecurringDay.value = dayjs(tx.date).date()
     formRecurringEndDate.value = ''
@@ -1990,44 +2023,28 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- ══ 할부 상세 팝업 ══ -->
-    <div v-if="showInstDetailPopup && instDetailTx" class="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center px-4" @click.self="showInstDetailPopup = false">
-      <div class="bg-gray-800 rounded-2xl w-full max-w-sm" @click.stop>
-        <div v-if="mockInstallmentMasters.find(m => m.id === instDetailTx!.installmentMasterId) as any" class="p-5">
-          <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center gap-2">
-              <span class="text-xs bg-orange-900/30 text-orange-400 px-2 py-0.5 rounded-full font-medium">
-                {{ instDetailTx.installmentSequence }}/{{ mockInstallmentMasters.find(m => m.id === instDetailTx!.installmentMasterId)?.totalInstallments }}회차
-              </span>
-              <span class="text-sm font-semibold text-gray-100">{{ instDetailTx.categoryName }}</span>
-            </div>
-            <button @click="showInstDetailPopup = false" class="text-gray-400 hover:text-gray-200">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-          </div>
-          <div class="space-y-2 bg-gray-700/50 rounded-xl p-3 mb-4">
-            <div class="flex justify-between text-sm">
-              <span class="text-gray-400">총금액 (원금)</span>
-              <span class="font-semibold text-gray-100">{{ mockInstallmentMasters.find(m => m.id === instDetailTx!.installmentMasterId)?.totalAmount.toLocaleString() }}원</span>
-            </div>
-            <div class="flex justify-between text-sm">
-              <span class="text-gray-400">이번 달 할부금</span>
-              <span class="font-semibold text-orange-400">{{ instDetailTx.amount.toLocaleString() }}원</span>
-            </div>
-            <div class="flex justify-between text-sm border-t border-gray-600 pt-2 mt-1">
-              <span class="text-gray-400">남은 금액</span>
-              <span class="font-semibold text-gray-300">
-                {{ (((mockInstallmentMasters.find(m => m.id === instDetailTx!.installmentMasterId)?.totalInstallments ?? 0) - (instDetailTx.installmentSequence ?? 0)) * (mockInstallmentMasters.find(m => m.id === instDetailTx!.installmentMasterId)?.monthlyAmount ?? 0)).toLocaleString() }}원
-              </span>
-            </div>
-          </div>
-          <div class="flex gap-2">
-            <button @click="openDeleteFromInstDetail" class="flex-1 py-2.5 border border-red-800 text-red-400 rounded-xl text-sm font-medium hover:bg-red-900/20">삭제</button>
-            <button @click="openEditFromInstDetail" class="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700">
-              수정
-              <span class="block text-[10px] font-normal text-blue-200">전체 회차 변경</span>
-            </button>
-          </div>
+    <!-- ══ 할부 수정 유형 선택 시트 ══ -->
+    <div v-if="showInstEditSheet && instEditTx" class="fixed inset-0 bg-black/40 z-[70] flex items-end justify-center" @click.self="showInstEditSheet = false">
+      <div class="bg-gray-800 rounded-t-2xl w-full max-w-lg pb-safe" @click.stop>
+        <div class="flex justify-center pt-3 pb-2"><div class="w-10 h-1 bg-gray-600 rounded-full"/></div>
+        <div class="px-5 pb-2">
+          <p class="text-sm font-semibold text-gray-100">할부 거래 수정</p>
+          <p class="text-xs text-gray-400 mt-0.5">
+            {{ instEditTx.categoryName }} ·
+            {{ instEditTx.installmentSequence }}/{{ mockInstallmentMasters.find(m => m.id === instEditTx!.installmentMasterId)?.totalInstallments }}회차 ·
+            {{ instEditTx.amount.toLocaleString() }}원
+          </p>
+        </div>
+        <div class="px-4 pb-5 space-y-2">
+          <button @click="openEditInstThisMonth" class="w-full py-3.5 border border-gray-700 text-gray-200 rounded-xl text-sm font-semibold hover:bg-gray-700 text-left px-4">
+            이번 달만 수정
+            <span class="block text-xs font-normal text-gray-400 mt-0.5">이번 회차 금액/카테고리만 변경, 나머지 회차 유지</span>
+          </button>
+          <button @click="openEditInstAll" class="w-full py-3.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 text-left px-4">
+            전체 회차 수정
+            <span class="block text-xs font-normal text-blue-200 mt-0.5">총금액·개월수 재설정, 모든 회차에 반영</span>
+          </button>
+          <button @click="showInstEditSheet = false" class="w-full py-2.5 text-sm text-gray-400">취소</button>
         </div>
       </div>
     </div>
