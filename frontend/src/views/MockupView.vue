@@ -551,12 +551,19 @@ function formSaveMock() {
       paymentMethodName: methodName,
       memo: formMemo.value || undefined,
     })
+    // 시작일부터 오늘까지 지난 모든 회차 즉시 생성
+    // 예: startDate=2/15, dayOfMonth=15, today=3/17 → 2/15, 3/15 모두 생성
     const today = dayjs().format('YYYY-MM-DD')
-    if (formDate.value <= today) {
+    const startD = dayjs(formDate.value)
+    for (let i = 0; i < 24; i++) {
+      const txDate = i === 0
+        ? formDate.value
+        : startD.add(i, 'month').date(formRecurringDay.value).format('YYYY-MM-DD')
+      if (txDate > today) break
       txTransactions.value.push({
-        id: masterId + 1,
+        id: masterId + i + 1,
         amount,
-        date: formDate.value,
+        date: txDate,
         type: formType.value,
         categoryId: formCategoryId.value,
         categoryName: catName,
