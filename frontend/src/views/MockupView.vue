@@ -996,6 +996,28 @@ function renderCatTrend() {
   })
 }
 
+// 도넛 중앙 텍스트 플러그인 — absolute div 대신 캔버스에 직접 그려 툴팁 충돌 방지
+const donutCenterPlugin = {
+  id: 'donutCenter',
+  afterDraw(chart: Chart) {
+    const { ctx, chartArea } = chart
+    if (!chartArea || !chart.data.datasets[0]) return
+    const total = (chart.data.datasets[0].data as number[]).reduce((s, v) => s + (Number(v) || 0), 0)
+    const cx = (chartArea.left + chartArea.right) / 2
+    const cy = (chartArea.top + chartArea.bottom) / 2
+    ctx.save()
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = '#9CA3AF'
+    ctx.font = '10px sans-serif'
+    ctx.fillText('합계', cx, cy - 9)
+    ctx.fillStyle = '#F3F4F6'
+    ctx.font = 'bold 12px sans-serif'
+    ctx.fillText(`${(total / 10000).toFixed(0)}만원`, cx, cy + 9)
+    ctx.restore()
+  },
+}
+
 function renderDonut() {
   if (!donutCanvas.value) return
   donutChart?.destroy()
@@ -1011,10 +1033,13 @@ function renderDonut() {
       responsive: true,
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${(ctx.raw as number).toLocaleString()}원` } },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        tooltip: { callbacks: { label: (ctx: any) => ` ${ctx.label}: ${(ctx.raw as number).toLocaleString()}원` } },
       },
       cutout: '65%',
-    },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any,
+    plugins: [donutCenterPlugin],
   })
 }
 
@@ -1387,12 +1412,8 @@ onUnmounted(() => {
             </div>
             <!-- 도넛 + 범례 -->
             <div v-else class="flex gap-4 items-center">
-              <div class="relative flex-shrink-0" style="width:120px;height:120px">
+              <div class="flex-shrink-0" style="width:120px;height:120px">
                 <canvas ref="donutCanvas"></canvas>
-                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span class="text-[10px] text-gray-400">합계</span>
-                  <span class="text-xs font-bold text-gray-100">{{ (statsCategoryData.reduce((s, d) => s + d.amount, 0) / 10000).toFixed(0) }}만원</span>
-                </div>
               </div>
               <div class="flex-1 space-y-2 min-w-0">
                 <div v-for="(item, i) in statsCategoryData" :key="item.name" class="flex items-center gap-2">
