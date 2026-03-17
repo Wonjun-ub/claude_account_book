@@ -999,7 +999,7 @@ function renderCatTrend() {
 // 도넛 중앙 텍스트 플러그인 — absolute div 대신 캔버스에 직접 그려 툴팁 충돌 방지
 const donutCenterPlugin = {
   id: 'donutCenter',
-  afterDraw(chart: Chart) {
+  afterDatasetsDraw(chart: Chart) {
     const { ctx, chartArea } = chart
     if (!chartArea || !chart.data.datasets[0]) return
     const total = (chart.data.datasets[0].data as number[]).reduce((s, v) => s + (Number(v) || 0), 0)
