@@ -611,6 +611,13 @@ npm run build
 
 ---
 
+## 검증 결과
+
+- [Sprint 9 검증 보고서](sprint9/validation-report.md) — 빌드/테스트 결과 및 코드 리뷰
+- PR: [#3 feat: Sprint 9 완료 — Local-first 실서비스 구현 (Dexie.js PWA)](https://github.com/Wonjun-ub/claude_account_book/pull/3)
+
+---
+
 ## 스프린트 회고
 
 ### 달성 사항
