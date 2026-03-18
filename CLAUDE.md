@@ -1,6 +1,10 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # BudgetTracker
 
-개인 가계부 웹앱 (MVP) — .NET 8 + Vue3 + Supabase PostgreSQL
+개인 가계부 웹앱 (MVP) — ~~.NET 8 + Vue3 + Supabase PostgreSQL~~ → **Vue3 + Dexie.js (Local-first PWA)** *(v2.0, 2026-03-17 전환)*
 
 ## 저장소
 
@@ -10,17 +14,43 @@
 
 | 영역 | 기술 | 버전 | 선택 근거 |
 |------|------|------|----------|
-| 프론트엔드 | Vue3 + Vite + TypeScript | Vue 3.4 / Vite 4.x | .NET 8과의 조합으로 타입 안정성과 빠른 개발 속도 확보 |
+| 프론트엔드 | Vue3 + Vite + TypeScript | Vue 3.4 / Vite 4.x | 타입 안정성과 빠른 개발 속도 확보 |
 | 런타임 | Node.js | **16.x (고정)** | 인프라 호환성 및 환경 안정성 — 서버 환경이 Node 16에 고정되어 있으므로 모든 의존성은 Node 16 호환 버전을 사용해야 함 |
 | CSS | Tailwind CSS | 3.x | |
 | 차트 | Chart.js | 4.x | |
 | 날짜 처리 | Day.js | 1.x | |
-| 백엔드 | .NET 8.0 Web API (C#) | 8.x | Vue3 TypeScript와의 조합으로 프론트-백 전 계층 타입 안전성 달성 |
-| 데이터베이스 | Supabase PostgreSQL | — | Node 16 제약 환경에서도 REST API 기반으로 서버리스 기능을 원활히 활용 가능 |
-| ORM | Entity Framework Core | 8.x | |
+| **로컬 DB** | **Dexie.js (IndexedDB)** | **3.x** | **v2.0 Local-first 전환 — 백엔드 없이 브라우저 IndexedDB에 직접 저장** |
+| ~~백엔드~~ | ~~.NET 8.0 Web API (C#)~~ | ~~8.x~~ | ~~→ Local-first(Dexie.js)로 교체~~ |
+| ~~데이터베이스~~ | ~~Supabase PostgreSQL~~ | ~~—~~ | ~~→ Local-first(Dexie.js)로 교체~~ |
+| ~~ORM~~ | ~~Entity Framework Core~~ | ~~8.x~~ | ~~→ Local-first(Dexie.js)로 교체~~ |
 | 상태관리 | Pinia | 2.x | |
 | 패키지 매니저 | npm | — | |
-| 배포 | Render | — | 프론트 + 백엔드 통합 |
+| 배포 | Render | — | 프론트엔드 정적 파일 배포 |
+
+## 개발 커맨드
+
+### 프론트엔드 (`frontend/`)
+
+```bash
+npm run dev           # 로컬 개발 서버 (localhost:5173)
+npm run build         # 프로덕션 빌드 (type-check 포함)
+npm run build:staging # 스테이징 빌드
+npm run type-check    # TypeScript 타입 검사만
+npm run lint          # ESLint (자동 수정 포함)
+npm run test          # Vitest 단위 테스트
+npm run test:e2e      # Playwright E2E 테스트
+```
+
+### ~~백엔드 (`backend/BudgetTracker.Api/`)~~ *(⚠️ Deprecated — v2.0 Local-first 전환으로 백엔드 제거)*
+
+```bash
+# ⚠️ Deprecated (v2.0 이후 불필요)
+# dotnet run            # 개발 서버 실행 (localhost:5244)
+# dotnet build          # 빌드
+# dotnet test           # 테스트
+# dotnet ef migrations add <Name>
+# dotnet ef database update
+```
 
 ### Node 16 호환성 제약
 
@@ -115,6 +145,54 @@ hotfix/*  →  PR to main  →  서버 자동 배포  →  main을 develop에 �
   - 프로덕션 배포는 main merge 시 GitHub Actions가 자동 수행합니다.
   - 배포 후 실서버 검증이 필요하면 deploy-prod agent의 5단계(실서버 자동 검증)를 참조합니다.
 
+## 코드 아키텍처
+
+### 전체 구조
+
+```
+frontend/src/
+├── api/           # API 레이어: client.ts (fetch wrapper) + index.ts (도메인별 api 객체)
+├── composables/   # useDialog, useAsyncData, useCurrencyFormat, useDateFormat
+├── mocks/         # 목업 전용 mock 데이터 (백엔드 미연동)
+├── router/        # Vue Router (/ → /mock-up 리다이렉트, 실서비스 라우트)
+├── stores/        # Pinia: app.ts (마스터 데이터 + 월 네비게이션)
+├── types/         # 공유 TypeScript 타입/인터페이스
+├── utils/         # monthPeriod.ts (날짜 범위 계산)
+└── views/         # HomeView, StatsView, SettingsView, MockupView
+
+# ⚠️ Deprecated (v2.0 이후 백엔드 제거)
+# backend/BudgetTracker.Api/
+# ├── Controllers/   # HTTP 엔드포인트 (얇은 레이어, 서비스 위임)
+# ├── Services/      # 비즈니스 로직 + Interfaces/
+# ├── Repositories/  # DB 쿼리 + Interfaces/
+# ├── Models/
+# │   ├── Entities/  # EF Core 엔티티
+# │   └── Enums/     # TransactionType, CategoryType, PaymentMethodType, RecurringType
+# ├── DTOs/          # Requests/, Responses/
+# ├── Helpers/       # DateRangeHelper (monthStartDay 기반 날짜 범위)
+# └── Data/          # BudgetTrackerDbContext
+```
+
+### 프론트엔드 핵심 패턴
+
+**API 레이어** (`src/api/index.ts`): 도메인별 api 객체 (`transactionsApi`, `recurringApi`, `installmentApi` 등). 삭제 모드는 Literal Type으로 컴파일 타임 검증 (`RecurringDeleteMode`, `InstallmentDeleteMode`).
+
+**Pinia Store** (`src/stores/app.ts`): 앱 전역에서 공유하는 마스터 데이터(카테고리, 결제수단, 포인트예산, 설정)와 현재 월 네비게이션만 관리. 거래 데이터는 각 View에서 로컬로 관리.
+
+**MockupView** (`src/views/MockupView.vue`): 단일 파일에 가계부/통계/설정 탭 전체 UI + localStorage mock 데이터를 포함하는 대형 SFC. 실서비스 이관 전 UI/UX 검증용.
+
+**날짜 유틸** (`src/utils/monthPeriod.ts`): `getMonthPeriod(year, month, startDay)` — monthStartDay 설정에 따른 실제 날짜 범위 반환. 모든 날짜 범위 계산에 반드시 사용.
+
+### ~~백엔드 핵심 패턴~~ *(⚠️ Deprecated — v2.0 Local-first 전환으로 백엔드 제거)*
+
+~~**3계층 아키텍처**: Controller → Service (Interface) → Repository (Interface). 신규 도메인 추가 시 Controller/Service/Repository 각 1파일 + Interface 2개 + DTO 필요.~~
+
+~~**반복·할부 트랜잭션**: 원부(Master) 테이블(`RecurringTransactions`, `InstallmentTransactions`)이 설정값을 보관하고, 실제 `Transactions`는 FK로 연결. 할부는 등록 시 N건 일괄 생성. `RecurringSkips`로 특정 월 스킵 처리.~~
+
+~~**날짜 범위**: `DateRangeHelper.GetMonthRange(year, month, startDay)` — 프론트의 `getMonthPeriod`와 동일 로직.~~
+
+~~**JSON 직렬화**: Enum → 문자열, null 필드 제외 (`Program.cs`에 전역 설정됨).~~
+
 ## 목업 우선 개발 원칙 (Mockup-First)
 
 **모든 기능 변경은 반드시 목업 확인을 거친 후 실서비스(프론트엔드·백엔드)에 반영합니다.**
@@ -124,7 +202,7 @@ hotfix/*  →  PR to main  →  서버 자동 배포  →  main을 develop에 �
 
 1. **신규 기능**: MockupView에 먼저 구현 → 로컬에서 UI/UX 확인 → 확정 후 실서비스 이관
 2. **기존 기능 변경**: 변경될 UI를 MockupView에 먼저 반영 → 확인 → 실서비스 수정
-3. **백엔드 변경**: API 설계는 목업 확인 후 확정. DB 스키마·API 변경은 목업 단계 이후에만 진행
+3. ~~**백엔드 변경**: API 설계는 목업 확인 후 확정. DB 스키마·API 변경은 목업 단계 이후에만 진행~~ *(⚠️ Deprecated — v2.0 이후 백엔드 없음. Dexie.js 스키마 변경도 목업 확인 후 진행)*
 4. **목업 미확인 상태에서 실서비스 페이지(`HomeView`, `StatsView`, `SettingsView` 등) 수정 금지**
 
 ### 목업 페이지 스펙
@@ -132,8 +210,8 @@ hotfix/*  →  PR to main  →  서버 자동 배포  →  main을 develop에 �
 | 항목 | 내용 |
 |------|------|
 | 경로 | `/mock-up` |
-| 접근 환경 | 로컬 개발(`vite dev`)에서만 접근 가능 |
-| 배포 포함 여부 | **미포함** — production 빌드 시 번들에서 완전 제외 |
+| 접근 환경 | 로컬 및 배포 환경 모두 접근 가능 |
+| 배포 포함 여부 | **포함** — production 빌드에도 번들에 포함됨 (기본 경로 `/` → `/mock-up` 리다이렉트) |
 | Git 커밋 | **포함** — 팀 전체가 로컬에서 확인 가능해야 함 |
 | 백엔드 연동 | **없음** — `frontend/src/mocks/` 의 mock 데이터로만 동작 |
 | UI 구조 | 실제 앱과 동일한 하단 탭(가계부/통계/설정) + 상단 DEV 배너 |
@@ -157,8 +235,8 @@ frontend/src/mocks/                   # mock 데이터 및 함수 (Sprint별로 
 3. 로컬 /mock-up 접속 → UI/UX 확인 및 피드백
       ↓
 4. [확인 완료] 실서비스 이관
-   - 프론트엔드: 실제 View/Component에 반영 + 실제 API 연동
-   - 백엔드: DB 스키마 변경, API 구현
+   - 프론트엔드: 실제 View/Component에 반영 + Dexie.js DB 연동
+   - ~~백엔드: DB 스키마 변경, API 구현~~ *(⚠️ Deprecated — v2.0 이후 백엔드 없음)*
       ↓
 5. MockupView에서 해당 섹션 제거 또는 Sprint 태그 유지
 ```
@@ -167,14 +245,9 @@ frontend/src/mocks/                   # mock 데이터 및 함수 (Sprint별로 
 
 ```typescript
 // frontend/src/router/index.ts
-// DEV 환경에서만 라우트 등록 — production 빌드 시 dead code elimination으로 번들 미포함
-if (import.meta.env.DEV) {
-  routes.push({
-    path: '/mock-up',
-    name: 'mockup',
-    component: () => import('@/views/MockupView.vue'),
-  })
-}
+// /mock-up 라우트는 항상 등록, / 는 /mock-up으로 리다이렉트
+{ path: '/', redirect: '/mock-up' },
+{ path: '/mock-up', name: 'mockup', component: MockupView },
 ```
 
 ```typescript
@@ -193,8 +266,8 @@ if (import.meta.env.DEV) {
   // Sprint N 목업용 — Sprint M에서 실제 API로 교체
   ```
 
-- **코드 수정 전 영향 범위 파악 필수**: 변경하는 코드가 영향을 미치는 모든 케이스(프론트엔드·백엔드 구분 없이)를 먼저 나열하고, 각 케이스가 수정 후에도 올바르게 동작하는지 확인합니다.
-  - 예: 신규 등록 / 편집 모드 / 권한별 분기 / API 호출 경로 등
+- **코드 수정 전 영향 범위 파악 필수**: 변경하는 코드가 영향을 미치는 모든 케이스(프론트엔드 전체, Dexie.js 스키마 포함)를 먼저 나열하고, 각 케이스가 수정 후에도 올바르게 동작하는지 확인합니다.
+  - 예: 신규 등록 / 편집 모드 / 권한별 분기 / Dexie.js 쿼리 경로 등
   - 한 케이스를 고치면서 다른 케이스가 깨지지 않도록 합니다.
 - **요청하지 않은 기능을 추가하지 않습니다.** 요청의 의도를 임의로 확장하거나, 관련 없는 동작을 함께 변경하지 않습니다. 불명확하면 구현 전에 먼저 확인합니다.
 - 검증 원칙 상세: `docs/dev-process.md` 섹션 5 참조
@@ -209,6 +282,33 @@ if (import.meta.env.DEV) {
 - **커밋은 작업 완료 시점에만** 수행합니다. 중간 변경사항은 커밋하지 않습니다.
 - **관련 변경사항은 하나의 커밋으로 묶습니다.** fix + docs, feat + style 등 같은 작업 단위는 분리하지 않습니다.
 - **명시적 요청 전까지 `git push` 금지.** "push해줘" / "배포해줘" 요청이 있을 때만 push합니다.
+
+## 날짜·기간 처리 규칙 (필수 준수)
+
+### monthStartDay 규칙
+
+사용자 설정 `UserSettings.MonthStartDay`(프론트: `settingMonthStartDay`)에 따라 "n월"의 실제 날짜 범위가 달라집니다.
+
+**절대 원칙: 날짜 범위가 필요한 모든 로직은 반드시 `getMonthPeriod(year, month, startDay)`를 통해 계산합니다. 달력 기준(1일~말일)으로 직접 계산 금지.**
+
+```
+startDay=1  → "3월" = 2026-03-01 ~ 2026-03-31  (표준)
+startDay=25 → "3월" = 2026-02-25 ~ 2026-03-24  (커스텀)
+startDay=25 → "4월" = 2026-03-25 ~ 2026-04-24  (커스텀)
+```
+
+**적용 범위:**
+- 거래 목록 필터링 (`txMonthFiltered`)
+- 월별 요약 계산 (`mockSummary`, `MonthlySummaryResponse`)
+- 반복 예정 판단 (`recurringPending`) — startDate/endDate 비교 포함
+- 월 이동 버튼, 기간 표시 레이블
+- 백엔드 `DateRangeHelper.GetMonthRange(year, month, startDay)` — 동일 규칙 적용
+
+**예외 (의도적 분리):**
+- 카드 청구 기간: 카드별 정산일/결제일 기준으로 독립 계산 (monthStartDay 무관)
+
+**프론트엔드 유틸**: `frontend/src/utils/monthPeriod.ts`
+~~**백엔드 유틸**: `backend/.../Helpers/DateRangeHelper.cs`~~ *(⚠️ Deprecated — 백엔드 제거)*
 
 ## 프론트엔드 UI 규칙
 
@@ -244,7 +344,9 @@ if (import.meta.env.DEV) {
 
 | 키             | 설명                | development             | staging                                        | production                                     |
 | -------------- | ------------------- | ----------------------- | ---------------------------------------------- | ---------------------------------------------- |
-| `VITE_API_URL` | 백엔드 API 기본 URL | `http://localhost:5244` | `https://budget-tracker-api-51n7.onrender.com` | `https://budget-tracker-api-51n7.onrender.com` |
+| ~~`VITE_API_URL`~~ | ~~백엔드 API 기본 URL~~ | ~~`http://localhost:5244`~~ | ~~`https://budget-tracker-api-51n7.onrender.com`~~ | ~~`https://budget-tracker-api-51n7.onrender.com`~~ |
+
+> ⚠️ `VITE_API_URL` — Local-first 전환으로 미사용. 환경변수 파일은 참조용으로 보존.
 
 ### 규칙
 
@@ -258,10 +360,12 @@ if (import.meta.env.DEV) {
 - `VITE_API_URL`은 **빌드 타임**에 주입됨 → Render 대시보드 환경변수 설정 불필요
 - `.env.staging` / `.env.production` 파일 값이 직접 빌드에 반영됨
 
-## 백엔드 환경변수 관리
+## ~~백엔드 환경변수 관리~~ *(⚠️ Deprecated — v2.0 Local-first 전환으로 백엔드 완전 제거)*
 
-백엔드는 .NET의 `appsettings.{Environment}.json` 파일 시스템으로 환경을 분리합니다.
-**민감 정보(DB 연결 문자열 등)는 절대 git에 커밋하지 마세요.**
+> ⚠️ **이 섹션은 v1.x 기록용으로 보존됩니다. v2.0 이후에는 적용되지 않습니다.**
+
+~~백엔드는 .NET의 `appsettings.{Environment}.json` 파일 시스템으로 환경을 분리합니다.~~
+~~**민감 정보(DB 연결 문자열 등)는 절대 git에 커밋하지 마세요.**~~
 
 ### 환경별 파일
 

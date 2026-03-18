@@ -103,11 +103,11 @@ const MOCK_CATEGORIES = [
   { id: 9, name: '비상금', type: 'Savings'  as const, isDefault: true },
 ]
 
-const MOCK_PAYMENT_METHODS = [
-  { id: 1, name: '신한카드',   type: 'Card'  as const, remainingAmount: undefined as number | undefined },
-  { id: 2, name: '현금',       type: 'Cash'  as const, remainingAmount: undefined },
-  { id: 3, name: '네이버페이', type: 'Point' as const, remainingAmount: 45000 },
-  { id: 4, name: '국민카드',   type: 'Card'  as const, remainingAmount: undefined as number | undefined },
+const MOCK_PAYMENT_METHODS: { id: number; name: string; type: 'Cash' | 'CreditCard' | 'DebitCard' | 'Point'; remainingAmount: number | undefined }[] = [
+  { id: 1, name: '신한카드',   type: 'CreditCard', remainingAmount: undefined },
+  { id: 2, name: '현금',       type: 'Cash',       remainingAmount: undefined },
+  { id: 3, name: '네이버페이', type: 'Point',      remainingAmount: 45000    },
+  { id: 4, name: '국민카드',   type: 'CreditCard', remainingAmount: undefined },
 ]
 
 const MOCK_SAVINGS_METHODS = [
@@ -280,7 +280,7 @@ const cardBillingModal = ref<CardFilter | null>(null)
 // 조회 월에 결제일이 있는 슬롯: 청구 기간 = 전월 16일 ~ 당월 15일
 const CARD_CUTOFF_DAY = 15
 const CARD_DUE_DAY = 25
-const cardPaymentMethods = MOCK_PAYMENT_METHODS.filter(m => m.type === 'Card')
+const cardPaymentMethods = MOCK_PAYMENT_METHODS.filter(m => m.type === 'CreditCard' || m.type === 'DebitCard')
 
 const cardBillingSummary = computed((): CardBillingSummary[] => {
   const periodTo   = dayjs(`${mockYear.value}-${String(mockMonth.value).padStart(2, '0')}-${String(CARD_CUTOFF_DAY).padStart(2, '0')}`)
@@ -435,7 +435,7 @@ const formIsRecurring       = ref(false)
 const formRecurringDay      = ref<number>(dayjs().date())
 const formRecurringEndDate  = ref('')
 
-const formCategories = computed(() => MOCK_CATEGORIES.filter(c => c.type === formType.value))
+const formCategories = computed(() => settingCategories.value.filter(c => c.type === formType.value && !c.isDeleted))
 
 const formIsValid = computed(() => {
   const amount = parseInt(formAmount.value.replace(/,/g, ''), 10) || 0
@@ -551,12 +551,19 @@ function formSaveMock() {
       paymentMethodName: methodName,
       memo: formMemo.value || undefined,
     })
+    // 시작일부터 오늘까지 지난 모든 회차 즉시 생성
+    // 예: startDate=2/15, dayOfMonth=15, today=3/17 → 2/15, 3/15 모두 생성
     const today = dayjs().format('YYYY-MM-DD')
-    if (formDate.value <= today) {
+    const startD = dayjs(formDate.value)
+    for (let i = 0; i < 24; i++) {
+      const txDate = i === 0
+        ? formDate.value
+        : startD.add(i, 'month').date(formRecurringDay.value).format('YYYY-MM-DD')
+      if (txDate > today) break
       txTransactions.value.push({
-        id: masterId + 1,
+        id: masterId + i + 1,
         amount,
-        date: formDate.value,
+        date: txDate,
         type: formType.value,
         categoryId: formCategoryId.value,
         categoryName: catName,
@@ -606,8 +613,42 @@ function formSaveMock() {
         recurringMasterId: undefined,
       })
     }
+  } else if (editingTxId.value !== null && editingInstMasterId.value !== undefined) {
+    // ── 할부 전체 회차 수정: 마스터 + 연결된 모든 거래 갱신
+    const months  = formInstallmentMonths.value ?? 1
+    const preview = calcMockInstallment(amount, months)
+    const mIdx    = mockInstallmentMasters.value.findIndex(m => m.id === editingInstMasterId.value)
+    if (mIdx !== -1) {
+      mockInstallmentMasters.value[mIdx] = {
+        ...mockInstallmentMasters.value[mIdx]!,
+        totalAmount: amount,
+        monthlyAmount: preview.monthlyAmount,
+        firstMonthAmount: preview.firstMonthAmount,
+        totalInstallments: months,
+        categoryId: formCategoryId.value,
+        categoryName: catName,
+        paymentMethodId: methodId,
+        paymentMethodName: methodName,
+        memo: formMemo.value || undefined,
+      }
+      const m = mockInstallmentMasters.value[mIdx]!
+      txTransactions.value = txTransactions.value.map(t => {
+        if (t.installmentMasterId !== editingInstMasterId.value) return t
+        return {
+          ...t,
+          amount: t.installmentSequence === 1 ? m.firstMonthAmount : m.monthlyAmount,
+          categoryId: formCategoryId.value,
+          categoryName: catName,
+          paymentMethodId: methodId,
+          paymentMethodName: methodName,
+          memo: formMemo.value || undefined,
+          isIncludedInTotal: formIsIncluded.value,
+        }
+      })
+    }
+    editingInstMasterId.value = undefined
   } else if (editingTxId.value !== null) {
-    // ── 수정
+    // ── 단건 수정 (이번 달만, 또는 일반 거래)
     const idx = txTransactions.value.findIndex(t => t.id === editingTxId.value)
     if (idx !== -1) {
       const existing = txTransactions.value[idx]!
@@ -651,7 +692,60 @@ function formSaveMock() {
 
 // ── 거래 수정/삭제 ────────────────────────────────────────────────────────────
 
+// 할부 수정 유형 선택 시트
+const showInstEditSheet    = ref(false)
+const instEditTx           = ref<MockTxRecord | null>(null)
+const editingInstMasterId  = ref<number | undefined>(undefined)
+
+// 반복 수정 유형 선택 시트
+const showRecurEditSheet = ref(false)
+const recurEditTx        = ref<MockTxRecord | null>(null)
+
 function openEdit(tx: MockTxRecord) {
+  if (tx.installmentMasterId !== undefined) {
+    instEditTx.value = tx
+    showInstEditSheet.value = true
+    return
+  }
+  if (tx.recurringMasterId !== undefined) {
+    recurEditTx.value = tx
+    showRecurEditSheet.value = true
+    return
+  }
+  _openEditModal(tx, false, false)
+}
+
+// 할부 "이번 달만 수정" — 단건만 수정, 마스터/다른 회차 유지
+function openEditInstThisMonth() {
+  if (!instEditTx.value) return
+  showInstEditSheet.value = false
+  editingInstMasterId.value = undefined
+  _openEditModal(instEditTx.value, false, true)
+}
+
+// 할부 "전체 회차 수정" — 마스터 업데이트 + 연결 거래 전체 갱신
+function openEditInstAll() {
+  if (!instEditTx.value) return
+  showInstEditSheet.value = false
+  editingInstMasterId.value = instEditTx.value.installmentMasterId
+  _openEditModal(instEditTx.value, false, false)
+}
+
+// 반복 "이번 달만 수정" — 이 거래 단건만 수정 (원부 유지)
+function openEditRecurThisMonth() {
+  if (!recurEditTx.value) return
+  showRecurEditSheet.value = false
+  _openEditModal(recurEditTx.value, true, false)
+}
+
+// 반복 "원부 수정" — 마스터 데이터로 로드 (이후 회차 반영)
+function openEditRecurMaster() {
+  if (!recurEditTx.value) return
+  showRecurEditSheet.value = false
+  _openEditModal(recurEditTx.value, false, false)
+}
+
+function _openEditModal(tx: MockTxRecord, recurThisMonthOnly: boolean, instThisMonthOnly: boolean) {
   editingTxId.value = tx.id
   // formType 설정 전에 method를 먼저 세팅 — watch(formType) 발화 시 덮어쓰기 방지
   if (tx.type === 'Savings') {
@@ -671,11 +765,11 @@ function openEdit(tx: MockTxRecord) {
   savedCatByType.Income  = tx.type === 'Income'  ? tx.categoryId : 0
   savedCatByType.Savings = tx.type === 'Savings' ? tx.categoryId : 0
 
-  // 할부 거래 → 마스터에서 총금액/개월수 로드
+  // 할부: 전체 회차 수정이면 마스터 총액으로, 이번 달만이면 단건 금액으로 로드
   const instMaster = tx.installmentMasterId
     ? mockInstallmentMasters.value.find(m => m.id === tx.installmentMasterId)
     : undefined
-  if (instMaster) {
+  if (instMaster && !instThisMonthOnly) {
     formIsInstallment.value = true
     formAmount.value = instMaster.totalAmount.toLocaleString()
     formInstallmentMonths.value = instMaster.totalInstallments
@@ -685,14 +779,20 @@ function openEdit(tx: MockTxRecord) {
     formInstallmentMonths.value = undefined
   }
 
-  // 반복 거래 → 마스터에서 반복 일자/종료일 로드
-  const recMaster = tx.recurringMasterId
-    ? mockRecurringMasters.value.find(m => m.id === tx.recurringMasterId)
-    : undefined
-  if (recMaster) {
-    formIsRecurring.value = true
-    formRecurringDay.value = recMaster.dayOfMonth
-    formRecurringEndDate.value = recMaster.endDate ?? ''
+  // 반복: 이번 달만이면 단건, 원부 수정이면 마스터 로드
+  if (!recurThisMonthOnly) {
+    const recMaster = tx.recurringMasterId
+      ? mockRecurringMasters.value.find(m => m.id === tx.recurringMasterId)
+      : undefined
+    if (recMaster) {
+      formIsRecurring.value = true
+      formRecurringDay.value = recMaster.dayOfMonth
+      formRecurringEndDate.value = recMaster.endDate ?? ''
+    } else {
+      formIsRecurring.value = false
+      formRecurringDay.value = dayjs(tx.date).date()
+      formRecurringEndDate.value = ''
+    }
   } else {
     formIsRecurring.value = false
     formRecurringDay.value = dayjs(tx.date).date()
@@ -849,8 +949,8 @@ function onPendingDeleteClick(master: MockRecurringMaster) {
 // ── 설정 (홈/폼에서 사용하는 데이터만 유지) ──────────────────────────────────
 
 const settingMonthStartDay  = ref(25)
-const settingCategories     = ref(MOCK_CATEGORIES.map(c => ({ ...c })))
-const settingPaymentMethods = ref<{ id: number; name: string; type: 'Cash' | 'Card' | 'Point'; remainingAmount: number | undefined }[]>(
+const settingCategories     = ref(MOCK_CATEGORIES.map(c => ({ ...c, isDeleted: false })))
+const settingPaymentMethods = ref<{ id: number; name: string; type: 'Cash' | 'CreditCard' | 'DebitCard' | 'Point'; remainingAmount: number | undefined }[]>(
   MOCK_PAYMENT_METHODS.map(m => ({ ...m }))
 )
 
@@ -859,36 +959,41 @@ const settingPaymentMethods = ref<{ id: number; name: string; type: 'Cash' | 'Ca
 // 카테고리
 const settingCatFilter = ref<'Expense' | 'Income' | 'Savings'>('Expense')
 const newCatName       = ref('')
-const newCatType       = ref<'Expense' | 'Income' | 'Savings'>('Expense')
 let   _nextCatId       = 100
 function settingAddCat() {
   if (!newCatName.value.trim()) return
-  settingCategories.value.push({ id: _nextCatId++, name: newCatName.value.trim(), type: newCatType.value, isDefault: false })
+  settingCategories.value.push({ id: _nextCatId++, name: newCatName.value.trim(), type: settingCatFilter.value, isDefault: false, isDeleted: false })
   newCatName.value = ''
 }
 function settingDeleteCat(id: number) {
-  settingCategories.value = settingCategories.value.filter(c => c.id !== id)
+  const cat = settingCategories.value.find(c => c.id === id)
+  if (cat) cat.isDeleted = true
 }
 
 // 결제수단
-const newMethodName = ref('')
-const newMethodType = ref<'Cash' | 'Card' | 'Point'>('Cash')
-let   _nextMethodId = 100
+const newMethodName      = ref('')
+const newMethodType      = ref<'Cash' | 'CreditCard' | 'DebitCard' | 'Point'>('Cash')
+let   _nextMethodId      = 100
+const expandedMethodId   = ref<number | null>(null)
 function settingAddMethod() {
   if (!newMethodName.value.trim()) return
   const id = _nextMethodId++
+  const isCard = newMethodType.value === 'CreditCard' || newMethodType.value === 'DebitCard'
   settingPaymentMethods.value.push({ id, name: newMethodName.value.trim(), type: newMethodType.value, remainingAmount: newMethodType.value === 'Point' ? 0 : undefined })
-  if (newMethodType.value === 'Card') settingCardBilling.value.push({ paymentMethodId: id, name: newMethodName.value.trim(), cutoffDay: 15, dueDay: 25 })
+  if (isCard) settingCardBilling.value.push({ paymentMethodId: id, name: newMethodName.value.trim(), cutoffDay: 15, dueDay: 25 })
+  if (newMethodType.value === 'Point') settingPointBudgets.value.push({ id: _nextPointId++, paymentMethodId: id, totalAmount: 0, remainingAmount: 0 })
   newMethodName.value = ''
 }
 function settingDeleteMethod(id: number) {
   settingPaymentMethods.value = settingPaymentMethods.value.filter(m => m.id !== id)
   settingCardBilling.value    = settingCardBilling.value.filter(c => c.paymentMethodId !== id)
+  settingPointBudgets.value   = settingPointBudgets.value.filter(p => p.paymentMethodId !== id)
+  if (expandedMethodId.value === id) expandedMethodId.value = null
 }
 
 // 카드 청구 설정
 const settingCardBilling = ref(
-  MOCK_PAYMENT_METHODS.filter(m => m.type === 'Card').map(m => ({ paymentMethodId: m.id, name: m.name, cutoffDay: 15, dueDay: 25 }))
+  MOCK_PAYMENT_METHODS.filter(m => m.type === 'CreditCard' || m.type === 'DebitCard').map(m => ({ paymentMethodId: m.id, name: m.name, cutoffDay: 15, dueDay: 25 }))
 )
 
 // 저축 수단
@@ -907,41 +1012,21 @@ function settingDeleteSavings(id: number) {
   settingSavingsMethods.value = settingSavingsMethods.value.filter(s => s.id !== id)
 }
 
-// 포인트 예산
+// 포인트 예산 (paymentMethodId로 결제수단과 연결)
 const settingPointBudgets = ref([
-  { id: 1, name: '네이버페이',  totalAmount: 100000, remainingAmount: 45000  },
-  { id: 2, name: '복지포인트', totalAmount: 600000, remainingAmount: 600000 },
+  { id: 1, paymentMethodId: 3, totalAmount: 100000, remainingAmount: 45000 },
 ])
-const newPointName   = ref('')
-const newPointAmount = ref('')
-let   _nextPointId   = 10
-function settingAddPoint() {
-  const amt = parseInt(newPointAmount.value.replace(/,/g, ''))
-  if (!newPointName.value.trim() || isNaN(amt) || amt <= 0) return
-  settingPointBudgets.value.push({ id: _nextPointId++, name: newPointName.value.trim(), totalAmount: amt, remainingAmount: amt })
-  newPointName.value = newPointAmount.value = ''
-}
-function settingDeletePoint(id: number) {
-  settingPointBudgets.value = settingPointBudgets.value.filter(p => p.id !== id)
-}
+let _nextPointId = 10
 
-// 반복 거래 관리
-function settingDeleteRecur(id: number) {
-  txTransactions.value       = txTransactions.value.filter(t => t.recurringMasterId !== id)
-  mockRecurringMasters.value = mockRecurringMasters.value.filter(m => m.id !== id)
-  recurSkippedSet.value      = recurSkippedSet.value.filter(k => !k.startsWith(`${id}-`))
+// 설정 아코디언
+const settingOpenSections = ref<string[]>([])
+function toggleSection(key: string) {
+  const idx = settingOpenSections.value.indexOf(key)
+  if (idx === -1) settingOpenSections.value.push(key)
+  else settingOpenSections.value.splice(idx, 1)
 }
-
-// 할부 진행 현황
-function instProgress(masterId: number) {
-  const master = mockInstallmentMasters.value.find(m => m.id === masterId)
-  if (!master) return { paid: 0, total: 0 }
-  const paid = txTransactions.value.filter(t => t.installmentMasterId === masterId).length
-  return { paid, total: master.totalInstallments }
-}
-function settingDeleteInst(id: number) {
-  txTransactions.value         = txTransactions.value.filter(t => t.installmentMasterId !== id)
-  mockInstallmentMasters.value = mockInstallmentMasters.value.filter(m => m.id !== id)
+function isSectionOpen(key: string) {
+  return settingOpenSections.value.includes(key)
 }
 
 // ── 통계 탭 ──────────────────────────────────────────────────────────────────
@@ -1199,9 +1284,9 @@ onUnmounted(() => {
 <template>
   <div class="h-full flex flex-col bg-gray-900">
 
-    <!-- DEV 배너 -->
-    <div class="flex-shrink-0 bg-orange-500 text-white text-xs text-center py-1 font-medium tracking-wide">
-      DEV MOCKUP — 로컬 개발 전용 · 백엔드 미접근
+    <!-- 버전 배너 -->
+    <div class="flex-shrink-0 bg-gray-800 text-gray-400 text-[10px] text-center py-1 tracking-wide">
+      v1.0 · 오프라인 모드만 동작
     </div>
 
     <div class="flex-1 overflow-hidden flex flex-col">
@@ -1583,218 +1668,196 @@ onUnmounted(() => {
         <div class="flex-1 overflow-y-auto px-4 py-4 space-y-4">
 
           <!-- 월 시작일 -->
-          <div class="bg-gray-800 rounded-2xl p-4">
-            <h3 class="text-sm font-semibold text-gray-100 mb-3">월 시작일</h3>
-            <div class="flex items-center gap-3">
-              <select v-model.number="settingMonthStartDay" class="bg-gray-700 text-gray-100 text-sm rounded-xl px-3 py-2 outline-none">
-                <option v-for="d in 28" :key="d" :value="d">{{ d }}일</option>
-              </select>
-              <span class="text-xs text-gray-400">매월 {{ settingMonthStartDay }}일 ~ 다음달 {{ settingMonthStartDay - 1 }}일 기준</span>
+          <div class="bg-gray-800 rounded-2xl overflow-hidden">
+            <button @click="toggleSection('monthStart')" class="w-full flex items-center justify-between px-4 py-3.5">
+              <div class="flex items-center gap-3">
+                <span class="text-sm font-semibold text-gray-100">월 시작일</span>
+                <span class="text-xs text-gray-400">{{ settingMonthStartDay }}일 기준</span>
+              </div>
+              <svg class="w-4 h-4 text-gray-400 transition-transform duration-200" :class="isSectionOpen('monthStart') ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div v-show="isSectionOpen('monthStart')" class="px-4 pb-4 border-t border-gray-700/50">
+              <div class="flex items-center gap-3 pt-3">
+                <select v-model.number="settingMonthStartDay" class="bg-gray-700 text-gray-100 text-sm rounded-xl px-3 py-2 outline-none">
+                  <option v-for="d in 28" :key="d" :value="d">{{ d }}일</option>
+                </select>
+                <span class="text-xs text-gray-400">매월 {{ settingMonthStartDay }}일 ~ 다음달 {{ settingMonthStartDay - 1 }}일 기준</span>
+              </div>
             </div>
           </div>
 
           <!-- 카테고리 관리 -->
-          <div class="bg-gray-800 rounded-2xl p-4">
-            <h3 class="text-sm font-semibold text-gray-100 mb-3">카테고리</h3>
-            <div class="flex rounded-xl bg-gray-700 p-1 mb-3">
-              <button @click="settingCatFilter = 'Expense'" :class="settingCatFilter === 'Expense' ? 'bg-red-500 text-white shadow-sm' : 'text-gray-400'" class="flex-1 py-1 text-xs font-medium rounded-lg transition-all">지출</button>
-              <button @click="settingCatFilter = 'Income'"  :class="settingCatFilter === 'Income'  ? 'bg-blue-500 text-white shadow-sm' : 'text-gray-400'" class="flex-1 py-1 text-xs font-medium rounded-lg transition-all">수입</button>
-              <button @click="settingCatFilter = 'Savings'" :class="settingCatFilter === 'Savings' ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-400'" class="flex-1 py-1 text-xs font-medium rounded-lg transition-all">저축</button>
-            </div>
-            <div class="space-y-1.5 mb-3">
-              <div v-for="cat in settingCategories.filter(c => c.type === settingCatFilter)" :key="cat.id"
-                class="flex items-center justify-between bg-gray-700/60 rounded-xl px-3 py-2">
-                <span class="text-sm text-gray-200">{{ cat.name }}</span>
-                <span v-if="cat.isDefault" class="text-[10px] text-gray-500 bg-gray-700 px-1.5 py-0.5 rounded">기본</span>
-                <button v-else @click="settingDeleteCat(cat.id)" class="text-gray-500 hover:text-red-400 transition-colors p-1">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
+          <div class="bg-gray-800 rounded-2xl overflow-hidden">
+            <button @click="toggleSection('category')" class="w-full flex items-center justify-between px-4 py-3.5">
+              <div class="flex items-center gap-3">
+                <span class="text-sm font-semibold text-gray-100">카테고리</span>
+                <span class="text-xs text-gray-400">{{ settingCategories.filter(c => !c.isDeleted).length }}개</span>
               </div>
-              <p v-if="settingCategories.filter(c => c.type === settingCatFilter).length === 0" class="text-xs text-gray-500 text-center py-2">항목 없음</p>
-            </div>
-            <div class="flex gap-2">
-              <input v-model="newCatName" placeholder="카테고리명" @keyup.enter="settingAddCat"
-                class="flex-1 bg-gray-700 text-gray-100 text-sm rounded-xl px-3 py-2 placeholder-gray-500 outline-none" />
-              <select v-model="newCatType" class="bg-gray-700 text-gray-300 text-xs rounded-xl px-2 py-2 outline-none">
-                <option value="Expense">지출</option>
-                <option value="Income">수입</option>
-                <option value="Savings">저축</option>
-              </select>
-              <button @click="settingAddCat" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-2 rounded-xl transition-colors">추가</button>
+              <svg class="w-4 h-4 text-gray-400 transition-transform duration-200" :class="isSectionOpen('category') ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div v-show="isSectionOpen('category')" class="px-4 pb-4 border-t border-gray-700/50">
+              <div class="flex rounded-xl bg-gray-700 p-1 mt-3 mb-3">
+                <button @click="settingCatFilter = 'Expense'" :class="settingCatFilter === 'Expense' ? 'bg-red-500 text-white shadow-sm' : 'text-gray-400'" class="flex-1 py-1 text-xs font-medium rounded-lg transition-all">지출</button>
+                <button @click="settingCatFilter = 'Income'"  :class="settingCatFilter === 'Income'  ? 'bg-blue-500 text-white shadow-sm' : 'text-gray-400'" class="flex-1 py-1 text-xs font-medium rounded-lg transition-all">수입</button>
+                <button @click="settingCatFilter = 'Savings'" :class="settingCatFilter === 'Savings' ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-400'" class="flex-1 py-1 text-xs font-medium rounded-lg transition-all">저축</button>
+              </div>
+              <div class="space-y-1.5 mb-3">
+                <div v-for="cat in settingCategories.filter(c => c.type === settingCatFilter && !c.isDeleted)" :key="cat.id"
+                  class="flex items-center justify-between bg-gray-700/60 rounded-xl px-3 py-2">
+                  <span class="text-sm text-gray-200">{{ cat.name }}</span>
+                  <span v-if="cat.isDefault" class="text-[10px] text-gray-500 bg-gray-700 px-1.5 py-0.5 rounded">기본</span>
+                  <button v-else @click="settingDeleteCat(cat.id)" class="text-gray-500 hover:text-red-400 transition-colors p-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                  </button>
+                </div>
+                <p v-if="settingCategories.filter(c => c.type === settingCatFilter && !c.isDeleted).length === 0" class="text-xs text-gray-500 text-center py-2">항목 없음</p>
+              </div>
+              <div class="flex gap-2">
+                <input v-model="newCatName" placeholder="카테고리명" @keyup.enter="settingAddCat"
+                  class="flex-1 bg-gray-700 text-gray-100 text-sm rounded-xl px-3 py-2 placeholder-gray-500 outline-none" />
+                <button @click="settingAddCat" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-2 rounded-xl transition-colors">추가</button>
+              </div>
             </div>
           </div>
 
           <!-- 결제수단 관리 -->
-          <div class="bg-gray-800 rounded-2xl p-4">
-            <h3 class="text-sm font-semibold text-gray-100 mb-3">결제수단</h3>
-            <div class="space-y-1.5 mb-3">
-              <div v-for="m in settingPaymentMethods" :key="m.id"
-                class="flex items-center justify-between bg-gray-700/60 rounded-xl px-3 py-2">
-                <div class="flex items-center gap-2">
-                  <span class="text-sm text-gray-200">{{ m.name }}</span>
-                  <span class="text-[10px] px-1.5 py-0.5 rounded"
-                    :class="m.type === 'Card' ? 'bg-blue-900/50 text-blue-300' : m.type === 'Point' ? 'bg-yellow-900/50 text-yellow-300' : 'bg-gray-600/60 text-gray-300'">
-                    {{ m.type === 'Card' ? '카드' : m.type === 'Point' ? '포인트' : '현금' }}
-                  </span>
-                </div>
-                <button @click="settingDeleteMethod(m.id)" class="text-gray-500 hover:text-red-400 transition-colors p-1">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
+          <div class="bg-gray-800 rounded-2xl overflow-hidden">
+            <button @click="toggleSection('paymentMethod')" class="w-full flex items-center justify-between px-4 py-3.5">
+              <div class="flex items-center gap-3">
+                <span class="text-sm font-semibold text-gray-100">결제수단</span>
+                <span class="text-xs text-gray-400">{{ settingPaymentMethods.length }}개</span>
               </div>
-            </div>
-            <div class="flex gap-2">
-              <input v-model="newMethodName" placeholder="결제수단명" @keyup.enter="settingAddMethod"
-                class="flex-1 bg-gray-700 text-gray-100 text-sm rounded-xl px-3 py-2 placeholder-gray-500 outline-none" />
-              <select v-model="newMethodType" class="bg-gray-700 text-gray-300 text-xs rounded-xl px-2 py-2 outline-none">
-                <option value="Cash">현금</option>
-                <option value="Card">카드</option>
-                <option value="Point">포인트</option>
-              </select>
-              <button @click="settingAddMethod" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-2 rounded-xl transition-colors">추가</button>
+              <svg class="w-4 h-4 text-gray-400 transition-transform duration-200" :class="isSectionOpen('paymentMethod') ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div v-show="isSectionOpen('paymentMethod')" class="px-4 pb-4 border-t border-gray-700/50">
+              <div class="space-y-1.5 mt-3 mb-3">
+                <div v-for="m in settingPaymentMethods" :key="m.id" class="bg-gray-700/60 rounded-xl overflow-hidden">
+                  <!-- 항목 행 -->
+                  <div class="flex items-center justify-between px-3 py-2">
+                    <button
+                      v-if="m.type === 'CreditCard' || m.type === 'DebitCard' || m.type === 'Point'"
+                      @click="expandedMethodId = expandedMethodId === m.id ? null : m.id"
+                      class="flex items-center gap-2 flex-1 min-w-0">
+                      <span class="text-sm text-gray-200">{{ m.name }}</span>
+                      <span class="text-[10px] px-1.5 py-0.5 rounded"
+                        :class="m.type === 'CreditCard' || m.type === 'DebitCard' ? 'bg-blue-900/50 text-blue-300' : 'bg-yellow-900/50 text-yellow-300'">
+                        {{ m.type === 'CreditCard' ? '신용카드' : m.type === 'DebitCard' ? '체크카드' : '포인트' }}
+                      </span>
+                      <svg class="w-3.5 h-3.5 text-gray-400 ml-auto transition-transform duration-200" :class="expandedMethodId === m.id ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div v-else class="flex items-center gap-2 flex-1">
+                      <span class="text-sm text-gray-200">{{ m.name }}</span>
+                      <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-600/60 text-gray-300">현금</span>
+                    </div>
+                    <button @click="settingDeleteMethod(m.id)" class="text-gray-500 hover:text-red-400 transition-colors p-1 ml-1 flex-shrink-0">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                  </div>
+
+                  <!-- 카드 청구 설정 (신용카드/체크카드) -->
+                  <template v-if="expandedMethodId === m.id && (m.type === 'CreditCard' || m.type === 'DebitCard')">
+                    <template v-for="card in settingCardBilling" :key="card.paymentMethodId">
+                      <div v-if="card.paymentMethodId === m.id" class="border-t border-gray-600/50 px-3 py-3 bg-gray-800/40">
+                        <p class="text-[10px] text-gray-400 font-medium mb-2 uppercase tracking-wide">카드 청구 설정</p>
+                        <div class="grid grid-cols-2 gap-3">
+                          <div>
+                            <label class="text-[10px] text-gray-400 block mb-1">정산일 (이용 마감)</label>
+                            <div class="flex items-center gap-1.5">
+                              <input v-model.number="card.cutoffDay" type="number" min="1" max="28"
+                                class="w-14 bg-gray-700 text-gray-100 text-sm text-center rounded-lg px-2 py-1.5 outline-none" />
+                              <span class="text-xs text-gray-400">일</span>
+                            </div>
+                          </div>
+                          <div>
+                            <label class="text-[10px] text-gray-400 block mb-1">결제일 (출금일)</label>
+                            <div class="flex items-center gap-1.5">
+                              <input v-model.number="card.dueDay" type="number" min="1" max="28"
+                                class="w-14 bg-gray-700 text-gray-100 text-sm text-center rounded-lg px-2 py-1.5 outline-none" />
+                              <span class="text-xs text-gray-400">일</span>
+                            </div>
+                          </div>
+                        </div>
+                        <p class="text-[10px] text-gray-500 mt-2">
+                          전월 {{ card.cutoffDay + 1 > 28 ? 1 : card.cutoffDay + 1 }}일 ~ 당월 {{ card.cutoffDay }}일 이용분 → {{ card.dueDay }}일 출금
+                        </p>
+                      </div>
+                    </template>
+                  </template>
+
+                  <!-- 포인트 예산 설정 -->
+                  <template v-if="expandedMethodId === m.id && m.type === 'Point'">
+                    <template v-for="p in settingPointBudgets" :key="p.id">
+                      <div v-if="p.paymentMethodId === m.id" class="border-t border-gray-600/50 px-3 py-3 bg-gray-800/40">
+                        <p class="text-[10px] text-gray-400 font-medium mb-2 uppercase tracking-wide">포인트 예산</p>
+                        <div class="grid grid-cols-2 gap-3">
+                          <div>
+                            <label class="text-[10px] text-gray-400 block mb-1">총 예산</label>
+                            <div class="flex items-center gap-1">
+                              <input v-model.number="p.totalAmount" type="number" min="0"
+                                class="w-full bg-gray-700 text-gray-100 text-xs text-right rounded-lg px-2 py-1.5 outline-none" />
+                              <span class="text-[10px] text-gray-400 flex-shrink-0">원</span>
+                            </div>
+                          </div>
+                          <div>
+                            <label class="text-[10px] text-gray-400 block mb-1">현재 잔액</label>
+                            <div class="flex items-center gap-1">
+                              <input v-model.number="p.remainingAmount" type="number" min="0"
+                                class="w-full bg-gray-700 text-yellow-300 text-xs text-right rounded-lg px-2 py-1.5 outline-none" />
+                              <span class="text-[10px] text-gray-400 flex-shrink-0">원</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+                  </template>
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <input v-model="newMethodName" placeholder="결제수단명" @keyup.enter="settingAddMethod"
+                  class="flex-1 bg-gray-700 text-gray-100 text-sm rounded-xl px-3 py-2 placeholder-gray-500 outline-none" />
+                <select v-model="newMethodType" class="bg-gray-700 text-gray-300 text-xs rounded-xl px-2 py-2 outline-none">
+                  <option value="Cash">현금</option>
+                  <option value="CreditCard">신용카드</option>
+                  <option value="DebitCard">체크카드</option>
+                  <option value="Point">포인트</option>
+                </select>
+                <button @click="settingAddMethod" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-2 rounded-xl transition-colors">추가</button>
+              </div>
             </div>
           </div>
 
-          <!-- 카드 청구 설정 -->
-          <div v-if="settingCardBilling.length > 0" class="bg-gray-800 rounded-2xl p-4">
-            <h3 class="text-sm font-semibold text-gray-100 mb-1">카드 청구 설정</h3>
-            <p class="text-[11px] text-gray-400 mb-3">카드별 정산일과 결제일을 설정합니다</p>
-            <div class="space-y-3">
-              <div v-for="card in settingCardBilling" :key="card.paymentMethodId" class="bg-gray-700/60 rounded-xl p-3">
-                <p class="text-sm font-medium text-gray-200 mb-2">{{ card.name }}</p>
-                <div class="grid grid-cols-2 gap-3">
-                  <div>
-                    <label class="text-[10px] text-gray-400 block mb-1">정산일 (이용 마감)</label>
-                    <div class="flex items-center gap-1.5">
-                      <input v-model.number="card.cutoffDay" type="number" min="1" max="28"
-                        class="w-14 bg-gray-700 text-gray-100 text-sm text-center rounded-lg px-2 py-1.5 outline-none" />
-                      <span class="text-xs text-gray-400">일</span>
-                    </div>
-                  </div>
-                  <div>
-                    <label class="text-[10px] text-gray-400 block mb-1">결제일 (출금일)</label>
-                    <div class="flex items-center gap-1.5">
-                      <input v-model.number="card.dueDay" type="number" min="1" max="28"
-                        class="w-14 bg-gray-700 text-gray-100 text-sm text-center rounded-lg px-2 py-1.5 outline-none" />
-                      <span class="text-xs text-gray-400">일</span>
-                    </div>
-                  </div>
-                </div>
-                <p class="text-[10px] text-gray-500 mt-2">
-                  전월 {{ card.cutoffDay + 1 > 28 ? 1 : card.cutoffDay + 1 }}일 ~ 당월 {{ card.cutoffDay }}일 이용분 → {{ card.dueDay }}일 출금
-                </p>
-              </div>
-            </div>
-          </div>
 
           <!-- 저축 수단 관리 -->
-          <div class="bg-gray-800 rounded-2xl p-4">
-            <h3 class="text-sm font-semibold text-gray-100 mb-1">저축 수단</h3>
-            <p class="text-[11px] text-gray-400 mb-3">적금, 청약 등 저축 거래에 사용하는 계좌</p>
-            <div class="space-y-1.5 mb-3">
-              <div v-for="s in settingSavingsMethods" :key="s.id"
-                class="flex items-center justify-between bg-gray-700/60 rounded-xl px-3 py-2">
-                <span class="text-sm text-gray-200">{{ s.name }}</span>
-                <span v-if="s.isDefault" class="text-[10px] text-gray-500 bg-gray-700 px-1.5 py-0.5 rounded">기본</span>
-                <button v-else @click="settingDeleteSavings(s.id)" class="text-gray-500 hover:text-red-400 transition-colors p-1">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
+          <div class="bg-gray-800 rounded-2xl overflow-hidden">
+            <button @click="toggleSection('savings')" class="w-full flex items-center justify-between px-4 py-3.5">
+              <div class="flex items-center gap-3">
+                <span class="text-sm font-semibold text-gray-100">저축 수단</span>
+                <span class="text-xs text-gray-400">{{ settingSavingsMethods.length }}개</span>
               </div>
-            </div>
-            <div class="flex gap-2">
-              <input v-model="newSavingsName" placeholder="저축 수단명" @keyup.enter="settingAddSavings"
-                class="flex-1 bg-gray-700 text-gray-100 text-sm rounded-xl px-3 py-2 placeholder-gray-500 outline-none" />
-              <button @click="settingAddSavings" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-2 rounded-xl transition-colors">추가</button>
-            </div>
-          </div>
-
-          <!-- 포인트 예산 -->
-          <div class="bg-gray-800 rounded-2xl p-4">
-            <h3 class="text-sm font-semibold text-gray-100 mb-1">포인트 예산</h3>
-            <p class="text-[11px] text-gray-400 mb-3">복지포인트, 식대 등 별도 예산 잔액 추적</p>
-            <div class="space-y-1.5 mb-3">
-              <div v-for="p in settingPointBudgets" :key="p.id"
-                class="flex items-center justify-between bg-gray-700/60 rounded-xl px-3 py-2">
-                <div>
-                  <span class="text-sm text-gray-200">{{ p.name }}</span>
-                  <div class="text-[10px] text-gray-400 mt-0.5">
-                    잔액 <span class="text-yellow-400">{{ p.remainingAmount.toLocaleString() }}원</span>
-                    <span class="text-gray-500"> / {{ p.totalAmount.toLocaleString() }}원</span>
-                  </div>
+              <svg class="w-4 h-4 text-gray-400 transition-transform duration-200" :class="isSectionOpen('savings') ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div v-show="isSectionOpen('savings')" class="px-4 pb-4 border-t border-gray-700/50">
+              <p class="text-[11px] text-gray-400 mt-3 mb-2">적금, 청약 등 저축 거래에 사용하는 계좌</p>
+              <div class="space-y-1.5 mb-3">
+                <div v-for="s in settingSavingsMethods" :key="s.id"
+                  class="flex items-center justify-between bg-gray-700/60 rounded-xl px-3 py-2">
+                  <span class="text-sm text-gray-200">{{ s.name }}</span>
+                  <span v-if="s.isDefault" class="text-[10px] text-gray-500 bg-gray-700 px-1.5 py-0.5 rounded">기본</span>
+                  <button v-else @click="settingDeleteSavings(s.id)" class="text-gray-500 hover:text-red-400 transition-colors p-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                  </button>
                 </div>
-                <button @click="settingDeletePoint(p.id)" class="text-gray-500 hover:text-red-400 transition-colors p-1">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
               </div>
-              <p v-if="settingPointBudgets.length === 0" class="text-xs text-gray-500 text-center py-2">등록된 예산 없음</p>
-            </div>
-            <div class="flex gap-2">
-              <input v-model="newPointName" placeholder="예산명"
-                class="flex-1 bg-gray-700 text-gray-100 text-sm rounded-xl px-3 py-2 placeholder-gray-500 outline-none" />
-              <input v-model="newPointAmount" placeholder="총액" @keyup.enter="settingAddPoint"
-                class="w-24 bg-gray-700 text-gray-100 text-sm rounded-xl px-3 py-2 placeholder-gray-500 outline-none" />
-              <button @click="settingAddPoint" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-2 rounded-xl transition-colors">추가</button>
-            </div>
-          </div>
-
-          <!-- 반복 거래 관리 -->
-          <div class="bg-gray-800 rounded-2xl p-4">
-            <h3 class="text-sm font-semibold text-gray-100 mb-1">반복 거래</h3>
-            <p class="text-[11px] text-gray-400 mb-3">등록된 반복 거래 목록</p>
-            <div v-if="mockRecurringMasters.length === 0" class="py-4 text-center text-gray-500 text-sm">등록된 반복 거래 없음</div>
-            <div v-else class="space-y-2">
-              <div v-for="r in mockRecurringMasters" :key="r.id"
-                class="bg-gray-700/60 rounded-xl px-3 py-2.5 flex items-center gap-3">
-                <div class="w-1.5 h-8 rounded-full flex-shrink-0"
-                  :class="r.type === 'Income' ? 'bg-blue-400' : r.type === 'Savings' ? 'bg-emerald-400' : 'bg-red-400'"></div>
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-1.5 flex-wrap">
-                    <span class="text-sm text-gray-200">{{ r.categoryName }}</span>
-                    <span v-if="r.memo" class="text-[10px] text-gray-500">· {{ r.memo }}</span>
-                    <span v-if="!r.isActive" class="text-[10px] text-gray-600 bg-gray-700 px-1.5 py-0.5 rounded">비활성</span>
-                  </div>
-                  <div class="text-[11px] text-gray-400 mt-0.5">
-                    매월 {{ r.dayOfMonth }}일 ·
-                    <span :class="r.type === 'Income' ? 'text-blue-400' : r.type === 'Savings' ? 'text-emerald-400' : 'text-red-400'">
-                      {{ r.type === 'Income' ? '+' : '-' }}{{ r.amount.toLocaleString() }}원
-                    </span>
-                    <span v-if="r.endDate" class="text-gray-500"> · ~{{ r.endDate }}</span>
-                  </div>
-                </div>
-                <button @click="settingDeleteRecur(r.id)" class="text-gray-500 hover:text-red-400 transition-colors p-1 flex-shrink-0">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                </button>
+              <div class="flex gap-2">
+                <input v-model="newSavingsName" placeholder="저축 수단명" @keyup.enter="settingAddSavings"
+                  class="flex-1 bg-gray-700 text-gray-100 text-sm rounded-xl px-3 py-2 placeholder-gray-500 outline-none" />
+                <button @click="settingAddSavings" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-2 rounded-xl transition-colors">추가</button>
               </div>
             </div>
           </div>
 
-          <!-- 할부 거래 관리 -->
-          <div class="bg-gray-800 rounded-2xl p-4 pb-8">
-            <h3 class="text-sm font-semibold text-gray-100 mb-1">할부 거래</h3>
-            <p class="text-[11px] text-gray-400 mb-3">진행 중인 할부 목록</p>
-            <div v-if="mockInstallmentMasters.length === 0" class="py-4 text-center text-gray-500 text-sm">진행 중인 할부 없음</div>
-            <div v-else class="space-y-2">
-              <div v-for="inst in mockInstallmentMasters" :key="inst.id"
-                class="bg-gray-700/60 rounded-xl px-3 py-2.5 flex items-center gap-3">
-                <div class="w-1.5 h-8 rounded-full flex-shrink-0 bg-orange-400"></div>
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-1.5 flex-wrap">
-                    <span class="text-sm text-gray-200">{{ inst.categoryName }}</span>
-                    <span v-if="inst.memo" class="text-[10px] text-gray-500">· {{ inst.memo }}</span>
-                    <span class="text-[10px] text-orange-300 bg-orange-900/40 px-1.5 py-0.5 rounded">
-                      {{ instProgress(inst.id).paid }}/{{ instProgress(inst.id).total }}회차
-                    </span>
-                  </div>
-                  <div class="text-[11px] text-gray-400 mt-0.5">
-                    총 {{ inst.totalAmount.toLocaleString() }}원 · 월 {{ inst.monthlyAmount.toLocaleString() }}원
-                    · <span class="text-orange-300">{{ instProgress(inst.id).total - instProgress(inst.id).paid }}회 남음</span>
-                  </div>
-                </div>
-                <button @click="settingDeleteInst(inst.id)" class="text-gray-500 hover:text-red-400 transition-colors p-1 flex-shrink-0">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                </button>
-              </div>
-            </div>
-          </div>
+
+          <div class="pb-4"></div>
 
         </div><!-- /스크롤 영역 -->
       </div>
@@ -1960,28 +2023,76 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <!-- ══ 할부 수정 유형 선택 시트 ══ -->
+    <div v-if="showInstEditSheet && instEditTx" class="fixed inset-0 bg-black/40 z-[70] flex items-end justify-center" @click.self="showInstEditSheet = false">
+      <div class="bg-gray-800 rounded-t-2xl w-full max-w-lg pb-safe" @click.stop>
+        <div class="flex justify-center pt-3 pb-2"><div class="w-10 h-1 bg-gray-600 rounded-full"/></div>
+        <div class="px-5 pb-2">
+          <p class="text-sm font-semibold text-gray-100">할부 거래 수정</p>
+          <p class="text-xs text-gray-400 mt-0.5">
+            {{ instEditTx.categoryName }} ·
+            {{ instEditTx.installmentSequence }}/{{ mockInstallmentMasters.find(m => m.id === instEditTx!.installmentMasterId)?.totalInstallments }}회차 ·
+            {{ instEditTx.amount.toLocaleString() }}원
+          </p>
+        </div>
+        <div class="px-4 pb-5 space-y-2">
+          <button @click="openEditInstThisMonth" class="w-full py-3.5 border border-gray-700 text-gray-200 rounded-xl text-sm font-semibold hover:bg-gray-700 text-left px-4">
+            이번 달만 수정
+            <span class="block text-xs font-normal text-gray-400 mt-0.5">이번 회차 금액/카테고리만 변경, 나머지 회차 유지</span>
+          </button>
+          <button @click="openEditInstAll" class="w-full py-3.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 text-left px-4">
+            전체 회차 수정
+            <span class="block text-xs font-normal text-blue-200 mt-0.5">총금액·개월수 재설정, 모든 회차에 반영</span>
+          </button>
+          <button @click="showInstEditSheet = false" class="w-full py-2.5 text-sm text-gray-400">취소</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 반복 수정 유형 선택 시트 ══ -->
+    <div v-if="showRecurEditSheet && recurEditTx" class="fixed inset-0 bg-black/40 z-[70] flex items-end justify-center" @click.self="showRecurEditSheet = false">
+      <div class="bg-gray-800 rounded-t-2xl w-full max-w-lg pb-safe" @click.stop>
+        <div class="flex justify-center pt-3 pb-2"><div class="w-10 h-1 bg-gray-600 rounded-full"/></div>
+        <div class="px-5 pb-2">
+          <p class="text-sm font-semibold text-gray-100">반복 거래 수정</p>
+          <p class="text-xs text-gray-400 mt-0.5">{{ recurEditTx.categoryName }} · 매월 {{ mockRecurringMasters.find(m => m.id === recurEditTx!.recurringMasterId)?.dayOfMonth }}일</p>
+        </div>
+        <div class="px-4 pb-5 space-y-2">
+          <button @click="openEditRecurThisMonth" class="w-full py-3.5 border border-gray-700 text-gray-200 rounded-xl text-sm font-semibold hover:bg-gray-700 text-left px-4">
+            이번 달만 수정
+            <span class="block text-xs font-normal text-gray-400 mt-0.5">이번 달 거래만 변경, 반복 원부 유지</span>
+          </button>
+          <button @click="openEditRecurMaster" class="w-full py-3.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 text-left px-4">
+            원부 수정 (이후 회차 반영)
+            <span class="block text-xs font-normal text-blue-200 mt-0.5">이후 미생성 회차에 모두 반영</span>
+          </button>
+          <button @click="showRecurEditSheet = false" class="w-full py-2.5 text-sm text-gray-400">취소</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ══ 가계부 내역 추가/수정 모달 ══ -->
     <div v-if="showModal" class="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center px-4" @click.self="showModal = false">
-      <div class="bg-gray-800 rounded-2xl w-full max-w-lg flex flex-col" style="max-height:90dvh">
-        <div class="flex-shrink-0 flex items-center justify-between px-4 py-4 border-b border-gray-700">
-          <h2 class="font-semibold text-gray-100">{{ editingTxId !== null ? '가계부 내역 수정' : '가계부 내역 추가' }}</h2>
+      <div class="bg-gray-800 rounded-2xl w-full max-w-sm flex flex-col" style="max-height:85dvh">
+        <div class="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-gray-700">
+          <h2 class="text-sm font-semibold text-gray-100">{{ editingTxId !== null ? '가계부 내역 수정' : '가계부 내역 추가' }}</h2>
           <button @click="showModal = false" class="text-gray-400 hover:text-gray-200">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
         <div class="flex-1 overflow-y-auto">
 
           <!-- 지출/수입 탭 -->
-          <div class="px-4 pt-4 pb-3">
+          <div class="px-4 pt-3 pb-2">
             <div class="flex rounded-xl bg-gray-700 p-1">
-              <button @click="formType = 'Expense'" :class="formType === 'Expense' ? 'bg-white text-red-500 shadow-sm' : 'text-gray-400'" class="flex-1 py-2 text-sm font-medium rounded-lg transition-all">지출</button>
-              <button @click="formType = 'Income'"  :class="formType === 'Income'  ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400'" class="flex-1 py-2 text-sm font-medium rounded-lg transition-all">수입</button>
-              <button @click="formType = 'Savings'" :class="formType === 'Savings' ? 'bg-white text-emerald-500 shadow-sm' : 'text-gray-400'" class="flex-1 py-2 text-sm font-medium rounded-lg transition-all">저축</button>
+              <button @click="formType = 'Expense'" :class="formType === 'Expense' ? 'bg-white text-red-500 shadow-sm' : 'text-gray-400'" class="flex-1 py-1.5 text-xs font-medium rounded-lg transition-all">지출</button>
+              <button @click="formType = 'Income'"  :class="formType === 'Income'  ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400'" class="flex-1 py-1.5 text-xs font-medium rounded-lg transition-all">수입</button>
+              <button @click="formType = 'Savings'" :class="formType === 'Savings' ? 'bg-white text-emerald-500 shadow-sm' : 'text-gray-400'" class="flex-1 py-1.5 text-xs font-medium rounded-lg transition-all">저축</button>
             </div>
           </div>
 
           <!-- 기본 정보 -->
-          <div class="px-4 py-3 space-y-3 border-t border-gray-700">
+          <div class="px-4 py-2 space-y-2 border-t border-gray-700">
             <p class="text-xs font-medium text-gray-400 uppercase tracking-wide">기본 정보</p>
 
             <!-- 금액 -->
@@ -2000,7 +2111,7 @@ onUnmounted(() => {
                   할부
                 </span>
               </div>
-              <input :value="formAmount" @input="onFormAmountInput" type="text" inputmode="numeric" placeholder="0" class="w-full border border-gray-700 rounded-xl px-3 py-2.5 text-lg font-semibold focus:outline-none focus:border-blue-400 bg-gray-700 text-gray-100" />
+              <input :value="formAmount" @input="onFormAmountInput" type="text" inputmode="numeric" placeholder="0" class="w-full border border-gray-700 rounded-xl px-3 py-2 text-sm font-semibold focus:outline-none focus:border-blue-400 bg-gray-700 text-gray-100" />
             </div>
 
             <!-- 할부 개월수 + 미리보기 -->
@@ -2008,43 +2119,43 @@ onUnmounted(() => {
               <div>
                 <label class="block text-xs text-gray-400 mb-1">총 개월수</label>
                 <div class="flex items-center gap-2">
-                  <input v-model.number="formInstallmentMonths" type="number" min="2" max="60" placeholder="12" class="w-24 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-center focus:outline-none focus:border-orange-400 bg-gray-700 text-gray-100" />
-                  <span class="text-sm text-gray-400">개월</span>
+                  <input v-model.number="formInstallmentMonths" type="number" min="2" max="60" placeholder="12" class="w-20 border border-gray-700 rounded-xl px-3 py-2 text-xs text-center focus:outline-none focus:border-orange-400 bg-gray-700 text-gray-100" />
+                  <span class="text-xs text-gray-400">개월</span>
                 </div>
               </div>
-              <div v-if="installmentPreview" class="bg-orange-900/20 rounded-xl px-3 py-2.5 space-y-1">
-                <div class="flex justify-between text-sm"><span class="text-gray-300">1회차</span><span class="font-semibold text-orange-700">{{ installmentPreview.firstMonthAmount.toLocaleString() }}원</span></div>
-                <div class="flex justify-between text-sm"><span class="text-gray-300">2회차 이후</span><span class="font-semibold text-orange-700">{{ installmentPreview.monthlyAmount.toLocaleString() }}원</span></div>
+              <div v-if="installmentPreview" class="bg-orange-900/20 rounded-xl px-3 py-2 space-y-1">
+                <div class="flex justify-between text-xs"><span class="text-gray-300">1회차</span><span class="font-semibold text-orange-700">{{ installmentPreview.firstMonthAmount.toLocaleString() }}원</span></div>
+                <div class="flex justify-between text-xs"><span class="text-gray-300">2회차 이후</span><span class="font-semibold text-orange-700">{{ installmentPreview.monthlyAmount.toLocaleString() }}원</span></div>
               </div>
             </template>
 
             <!-- 날짜 -->
             <div>
               <label class="block text-xs text-gray-400 mb-1">날짜</label>
-              <input v-model="formDate" type="date" class="w-full border border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-blue-400 bg-gray-700 text-gray-100" />
+              <input v-model="formDate" type="date" class="w-full border border-gray-700 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-400 bg-gray-700 text-gray-100" />
             </div>
           </div>
 
           <!-- 분류 -->
-          <div class="px-4 py-3 space-y-3 border-t border-gray-700">
+          <div class="px-4 py-2 space-y-2 border-t border-gray-700">
             <p class="text-xs font-medium text-gray-400 uppercase tracking-wide">분류</p>
             <div>
               <label class="block text-xs text-gray-400 mb-1">카테고리</label>
-              <select v-model="formCategoryId" class="w-full border border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-blue-400 bg-gray-700 text-gray-100">
+              <select v-model="formCategoryId" class="w-full border border-gray-700 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-400 bg-gray-700 text-gray-100">
                 <option :value="0">선택하세요</option>
                 <option v-for="c in formCategories" :key="c.id" :value="c.id">{{ c.name }}</option>
               </select>
             </div>
             <div v-if="formType === 'Expense'">
               <label class="block text-xs text-gray-400 mb-1">결제수단</label>
-              <select v-model="formPaymentMethodId" class="w-full border border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-blue-400 bg-gray-700 text-gray-100">
+              <select v-model="formPaymentMethodId" class="w-full border border-gray-700 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-400 bg-gray-700 text-gray-100">
                 <option :value="0">선택하세요</option>
-                <option v-for="m in MOCK_PAYMENT_METHODS" :key="m.id" :value="m.id">{{ m.name }}<template v-if="m.type === 'Point'"> (잔액 {{ m.remainingAmount?.toLocaleString() }}원)</template></option>
+                <option v-for="m in MOCK_PAYMENT_METHODS" :key="m.id" :value="m.id">{{ m.name }} ({{ m.type === 'CreditCard' ? '신용카드' : m.type === 'DebitCard' ? '체크카드' : m.type === 'Point' ? '포인트' : '현금' }}{{ m.type === 'Point' && m.remainingAmount !== undefined ? ' · 잔액 ' + m.remainingAmount.toLocaleString() + '원' : '' }})</option>
               </select>
             </div>
             <div v-if="formType === 'Savings'">
               <label class="block text-xs text-gray-400 mb-1">저축 수단</label>
-              <select v-model="formSavingsMethodId" class="w-full border border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-400 bg-gray-700 text-gray-100">
+              <select v-model="formSavingsMethodId" class="w-full border border-gray-700 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-400 bg-gray-700 text-gray-100">
                 <option :value="0">선택하세요</option>
                 <option v-for="m in MOCK_SAVINGS_METHODS" :key="m.id" :value="m.id">{{ m.name }}</option>
               </select>
@@ -2052,9 +2163,9 @@ onUnmounted(() => {
           </div>
 
           <!-- 부가 정보 -->
-          <div class="px-4 py-3 space-y-3 border-t border-gray-700">
+          <div class="px-4 py-2 space-y-2 border-t border-gray-700">
             <p class="text-xs font-medium text-gray-400 uppercase tracking-wide">부가 정보</p>
-            <input v-model="formMemo" type="text" placeholder="메모 (선택)" class="w-full border border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-blue-400 bg-gray-700 text-gray-100" />
+            <input v-model="formMemo" type="text" placeholder="메모 (선택)" class="w-full border border-gray-700 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-400 bg-gray-700 text-gray-100" />
 
             <!-- 반복 토글 -->
             <div>
@@ -2062,20 +2173,20 @@ onUnmounted(() => {
                 <div @click="formIsRecurring = !formIsRecurring" :class="formIsRecurring ? 'bg-teal-500' : 'bg-gray-600'" class="w-11 h-6 rounded-full transition-colors relative flex-shrink-0">
                   <div :class="formIsRecurring ? 'translate-x-5' : 'translate-x-0.5'" class="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"/>
                 </div>
-                <span class="text-sm text-gray-200">매월 반복</span>
+                <span class="text-xs text-gray-200">매월 반복</span>
               </label>
               <!-- 반복 ON 시 펼쳐지는 필드 -->
               <template v-if="formIsRecurring">
-                <div class="mt-3 flex items-center gap-2">
-                  <span class="text-sm text-gray-300">매월</span>
+                <div class="mt-2 flex items-center gap-2">
+                  <span class="text-xs text-gray-300">매월</span>
                   <input v-model.number="formRecurringDay" type="number" min="1" max="28"
-                    class="w-16 border border-gray-700 rounded-xl px-3 py-2 text-sm text-center focus:outline-none focus:border-teal-400 bg-gray-700 text-gray-100" />
-                  <span class="text-sm text-gray-300">일 반복</span>
+                    class="w-14 border border-gray-700 rounded-xl px-2 py-1.5 text-xs text-center focus:outline-none focus:border-teal-400 bg-gray-700 text-gray-100" />
+                  <span class="text-xs text-gray-300">일 반복</span>
                 </div>
                 <div class="mt-2">
                   <label class="block text-xs text-gray-400 mb-1">종료일 <span class="text-gray-400">(없으면 무기한)</span></label>
                   <input v-model="formRecurringEndDate" type="date"
-                    class="w-full border border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-teal-400 bg-gray-700 text-gray-100" />
+                    class="w-full border border-gray-700 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-teal-400 bg-gray-700 text-gray-100" />
                 </div>
               </template>
             </div>
@@ -2084,16 +2195,16 @@ onUnmounted(() => {
               <div @click="formIsIncluded = !formIsIncluded" :class="formIsIncluded ? 'bg-blue-600' : 'bg-gray-600'" class="w-11 h-6 rounded-full transition-colors relative">
                 <div :class="formIsIncluded ? 'translate-x-5' : 'translate-x-0.5'" class="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"/>
               </div>
-              <span class="text-sm text-gray-200">합산에 포함</span>
+              <span class="text-xs text-gray-200">합산에 포함</span>
             </label>
           </div>
         </div>
 
         <!-- 저장 버튼 -->
-        <div class="flex-shrink-0 px-4 py-4 border-t border-gray-700">
+        <div class="flex-shrink-0 px-4 py-3 border-t border-gray-700">
           <button @click="formSaveMock" :disabled="!formIsValid && !formSaved"
             :class="formSaved ? 'bg-green-500' : !formIsValid ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : (formIsInstallment && formType === 'Expense') ? 'bg-orange-500 hover:bg-orange-600' : 'bg-blue-600 hover:bg-blue-700'"
-            class="w-full text-white py-3 rounded-xl font-semibold text-sm transition-colors">
+            class="w-full text-white py-2.5 rounded-xl font-semibold text-xs transition-colors">
             {{ formSaved ? '✓ 저장 완료' : editingTxId !== null ? '수정 완료' : (formIsInstallment && formType === 'Expense') ? '할부 등록' : formIsRecurring ? '반복 등록' : '추가' }}
           </button>
         </div>

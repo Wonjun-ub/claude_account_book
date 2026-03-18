@@ -1,12 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import dayjs from 'dayjs'
-import type { Category, PaymentMethod, PointBudget, UserSettings } from '@/types'
-import { categoriesApi, paymentMethodsApi, pointBudgetsApi, settingsApi } from '@/api'
+import { db } from '@/database/db'
 
-export const useAppStore = defineStore('app', () => {
+export const useSettingsStore = defineStore('settings', () => {
   // ── 현재 월 네비게이션 ────────────────────────────────────────────────────
-  const currentYear = ref(dayjs().year())
+  const currentYear  = ref(dayjs().year())
   const currentMonth = ref(dayjs().month() + 1)
 
   function prevMonth() {
@@ -27,45 +26,44 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  const currentMonthLabel = computed(() =>
-    `${currentYear.value}년 ${currentMonth.value}월`
+  const currentMonthLabel = computed(
+    () => `${currentYear.value}년 ${currentMonth.value}월`,
   )
 
-  // ── 공통 마스터 데이터 ────────────────────────────────────────────────────
-  const categories = ref<Category[]>([])
-  const paymentMethods = ref<PaymentMethod[]>([])
-  const pointBudgets = ref<PointBudget[]>([])
-  const settings = ref<UserSettings>({ id: 1, monthStartDay: 1 })
-  const loading = ref(false)
+  // ── 설정 데이터 ───────────────────────────────────────────────────────────
+  const monthStartDay = ref(1)
+  const settingsId    = ref<number | undefined>(undefined)
 
-  async function loadMasterData() {
-    loading.value = true
-
-    try {
-      const [cats, methods, points, s] = await Promise.all([
-        categoriesApi.getAll(),
-        paymentMethodsApi.getAll(),
-        pointBudgetsApi.getAll(),
-        settingsApi.get(),
-      ])
-
-      categories.value = cats
-      paymentMethods.value = methods
-      pointBudgets.value = points
-      settings.value = s
-    } finally {
-      loading.value = false
+  async function loadSettings(): Promise<void> {
+    const all = await db.userSettings.toArray()
+    if (all.length > 0) {
+      const s = all[0]!
+      settingsId.value    = s.id
+      monthStartDay.value = s.monthStartDay
     }
   }
 
-  const incomeCategories = computed(() => categories.value.filter(c => c.type === 'Income'))
-  const expenseCategories = computed(() => categories.value.filter(c => c.type === 'Expense'))
+  async function saveMonthStartDay(day: number): Promise<void> {
+    if (settingsId.value !== undefined) {
+      await db.userSettings.update(settingsId.value, { monthStartDay: day })
+    } else {
+      const id = await db.userSettings.add({ monthStartDay: day })
+      settingsId.value = id as number
+    }
+    monthStartDay.value = day
+  }
 
   return {
-    currentYear, currentMonth, currentMonthLabel,
-    prevMonth, nextMonth,
-    categories, paymentMethods, pointBudgets, settings,
-    incomeCategories, expenseCategories,
-    loading, loadMasterData,
+    currentYear,
+    currentMonth,
+    currentMonthLabel,
+    prevMonth,
+    nextMonth,
+    monthStartDay,
+    loadSettings,
+    saveMonthStartDay,
   }
 })
+
+// 기존 이름으로도 import 가능하도록 alias export
+export { useSettingsStore as useAppStore }

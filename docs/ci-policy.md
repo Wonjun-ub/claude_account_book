@@ -19,7 +19,7 @@
 ```
 sprint{n}
   ↓ PR & merge (스프린트 완료 시)
-develop ──────────────→ 로컬 직접 실행(dotnet run + npm run dev)으로 스테이징 검증
+develop ──────────────→ 로컬 직접 실행(~~dotnet run +~~ npm run dev)으로 스테이징 검증
   ↓ PR & merge (QA 통과 후)
 main    ──────────────→ GitHub Actions → 프로덕션 서버 자동 배포
   ↓ tag
@@ -56,8 +56,8 @@ PR이 `develop` 또는 `main`으로 올라오면 GitHub Actions가 자동으로 
 
 ### 필수 통과 조건
 
-1. **`dotnet build` 성공** — 백엔드 빌드 에러 없음
-2. **`dotnet test` 통과** — 백엔드 단위 테스트 전체 통과
+1. ~~**`dotnet build` 성공** — 백엔드 빌드 에러 없음~~ *(⚠️ Deprecated — v2.0 Local-first 전환으로 백엔드 제거)*
+2. ~~**`dotnet test` 통과** — 백엔드 단위 테스트 전체 통과~~ *(⚠️ Deprecated — v2.0 Local-first 전환으로 백엔드 제거)*
 3. **`npm run build` 성공** — 프론트엔드 빌드 에러 없음
 
 PR merge는 위 조건이 모두 통과된 후에만 가능합니다 (Branch Protection Rule).
@@ -71,8 +71,9 @@ PR merge는 위 조건이 모두 통과된 후에만 가능합니다 (Branch Pro
 `develop` 브랜치는 로컬에서 직접 실행하여 스테이징 검증합니다.
 
 ```bash
+# ⚠️ Deprecated (v2.0 이후 백엔드 제거)
 # 백엔드
-cd backend/BudgetTracker.Api && dotnet run
+# cd backend/BudgetTracker.Api && dotnet run
 
 # 프론트엔드 (별도 터미널)
 cd frontend && npm run dev
@@ -82,7 +83,7 @@ cd frontend && npm run dev
 
 `main` 브랜치에 merge되면 **Render**가 자동으로 감지하여 배포합니다:
 
-1. 백엔드: Render가 `backend/BudgetTracker.Api/` 빌드 후 배포
+1. ~~백엔드: Render가 `backend/BudgetTracker.Api/` 빌드 후 배포~~ *(⚠️ Deprecated — v2.0 Local-first 전환으로 백엔드 제거)*
 2. 프론트엔드: Render가 `frontend/` 빌드 (`vite build`) 후 정적 파일 배포
 3. 배포 설정: `render.yaml` 참조
 
@@ -92,17 +93,19 @@ cd frontend && npm run dev
 
 | 환경 | 설정 방법 | 비고 |
 |------|----------|------|
-| 로컬 개발 | `appsettings.Development.json`, `frontend/.env.development` | Git 미추적 (민감 정보) |
+| 로컬 개발 | ~~`appsettings.Development.json`,~~ `frontend/.env.development` | *(백엔드 설정은 v2.0 이후 불필요)* |
 | 프로덕션 | Render 대시보드 환경변수 | CLAUDE.md 참조 |
 
-> 전체 환경변수 목록 및 파일별 설명은 `CLAUDE.md`의 "프론트엔드 환경변수 관리" / "백엔드 환경변수 관리" 섹션 참조.
+> 전체 환경변수 목록 및 파일별 설명은 `CLAUDE.md`의 "프론트엔드 환경변수 관리" 섹션 참조.
 
 ### Render 프로덕션 필수 환경변수
 
+> ⚠️ Deprecated — v2.0 Local-first 전환 이후 아래 백엔드 환경변수는 불필요합니다.
+
 | 환경변수 | 서비스 | 설명 |
 |----------|--------|------|
-| `ConnectionStrings__DefaultConnection` | 백엔드 | Supabase 연결 문자열 |
-| `ASPNETCORE_ENVIRONMENT` | 백엔드 | `Production` (render.yaml에 포함) |
+| ~~`ConnectionStrings__DefaultConnection`~~ | ~~백엔드~~ | ~~Supabase 연결 문자열~~ |
+| ~~`ASPNETCORE_ENVIRONMENT`~~ | ~~백엔드~~ | ~~`Production` (render.yaml에 포함)~~ |
 
 ---
 
@@ -115,17 +118,15 @@ cd frontend && npm run dev
 
 Render 대시보드 → 해당 서비스 → "Deploys" 탭 → 이전 성공 배포 선택 → "Rollback to this deploy"
 
-### DB 마이그레이션 롤백
+### ~~DB 마이그레이션 롤백~~ *(⚠️ Deprecated — v2.0 이후 DB 없음)*
 
 ```bash
+# ⚠️ Deprecated (v2.0 Local-first 전환 이후 EF Core 마이그레이션 불필요)
 # EF Core 이전 마이그레이션으로 다운그레이드
-cd backend/BudgetTracker.Api
-dotnet ef migrations list                          # 마이그레이션 목록 확인
-dotnet ef database update <이전_마이그레이션_이름>   # 특정 버전으로 롤백
+# cd backend/BudgetTracker.Api
+# dotnet ef migrations list
+# dotnet ef database update <이전_마이그레이션_이름>
 ```
-
-> ⚠️ DB 마이그레이션 롤백은 데이터 손실이 발생할 수 있습니다.
-> 롤백 전 Supabase 대시보드에서 수동 백업을 수행하세요.
 
 ---
 

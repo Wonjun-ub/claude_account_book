@@ -1,159 +1,132 @@
-// ── 공통 Enum ──────────────────────────────────────────────────────────────
-export type TransactionType = 'Income' | 'Expense'
-export type CategoryType = 'Income' | 'Expense'
-export type PaymentMethodType = 'Cash' | 'Card' | 'Point'
-export type RecurringType = 'Fixed'
+// ── db.ts 타입 re-export ────────────────────────────────────────────────────
+export type {
+  TransactionType,
+  PaymentMethodType,
+  Transaction,
+  Category,
+  PaymentMethod,
+  SavingsMethod,
+  RecurringTransaction,
+  RecurringSkip,
+  InstallmentTransaction,
+  UserSettings,
+} from '@/database/db'
 
-// ── 엔티티 ─────────────────────────────────────────────────────────────────
-export interface Category {
-  id: number
-  name: string
-  type: CategoryType
-  isDefault: boolean
-}
+// ── 뷰 전용 composite 타입 ──────────────────────────────────────────────────
 
-export interface PointBudget {
-  id: number
-  name: string
-  totalAmount: number
-  remainingAmount: number
-}
-
-export interface PaymentMethod {
-  id: number
-  name: string
-  type: PaymentMethodType
-  isDefault: boolean
-  pointBudgetId?: number
-  pointBudget?: PointBudget
-}
-
-export interface Transaction {
-  id: number
-  amount: number
-  date: string
-  memo?: string
-  type: TransactionType
-  categoryId: number
-  categoryName: string
-  paymentMethodId: number
-  paymentMethodName: string
-  isIncludedInTotal: boolean
-  recurringTransactionId?: number
-  // 할부 관련 (nullable)
+/** 거래 + 조인된 이름 필드 (목록 표시용) */
+export interface TransactionView {
+  id:                        number
+  amount:                    number
+  date:                      string
+  type:                      import('@/database/db').TransactionType
+  categoryId:                number
+  categoryName:              string
+  paymentMethodId?:          number
+  paymentMethodName?:        string
+  savingsMethodId?:          number
+  savingsMethodName?:        string
+  memo?:                     string
+  isIncludedInTotal:         boolean
+  recurringTransactionId?:   number
   installmentTransactionId?: number
-  installmentSequence?: number
-  installmentTotalInstallments?: number
+  installmentSequence?:      number
+  installmentTotalInstallments?: number  // "N/M회" 표시용
 }
 
-export interface RecurringTransaction {
-  id: number
-  amount: number
-  categoryId: number
-  categoryName: string
-  paymentMethodId: number
-  paymentMethodName: string
-  type: RecurringType
-  dayOfMonth: number
-  memo?: string
-  isActive: boolean
-  startDate?: string
-  endDate?: string
-}
-
-export interface InstallmentTransaction {
-  id: number
-  totalAmount: number
-  monthlyAmount: number
-  firstMonthAmount: number
-  totalInstallments: number
-  startDate: string
-  categoryId: number
-  categoryName: string
-  paymentMethodId: number
-  paymentMethodName: string
-  memo?: string
-  isActive: boolean
-}
-
-export interface UserSettings {
-  id: number
-  monthStartDay: number
-}
-
-// ── 요약/통계 ──────────────────────────────────────────────────────────────
+/** 월별 요약 (로컬 계산) */
 export interface MonthlySummary {
-  year: number
-  month: number
-  totalIncome: number
+  year:         number
+  month:        number
+  totalIncome:  number
   totalExpense: number
-  balance: number
-  monthOverMonthChange: number
-  periodStart: string
-  periodEnd: string
-  incomeCount: number
+  totalSavings: number
+  balance:      number          // totalIncome - totalExpense
+  periodStart:  string          // YYYY-MM-DD
+  periodEnd:    string          // YYYY-MM-DD
+  incomeCount:  number
   expenseCount: number
+  savingsCount: number
 }
 
+/** 카테고리별 집계 (통계 탭) */
 export interface CategorySummary {
-  categoryId: number
+  categoryId:   number
   categoryName: string
-  categoryType: CategoryType
-  amount: number
-  percentage: number
+  categoryType: import('@/database/db').TransactionType
+  amount:       number
+  percentage:   number
 }
 
+/** 카드별 청구 현황 (카드 결제 위젯) */
+export interface CardBillingSummary {
+  id:          number
+  name:        string
+  dueDate:     string    // YYYY-MM-DD — 결제일
+  periodFrom:  string    // YYYY-MM-DD — 청구 시작일
+  periodTo:    string    // YYYY-MM-DD — 청구 종료일
+  amount:      number    // 해당 청구 기간 내 합계
+  dDayLabel:   string    // "D-3", "D-day", "D+1" 등
+}
+
+/** 월별 추이 (6개월 차트) */
 export interface MonthlyTrend {
-  year: number
-  month: number
-  income: number
+  year:    number
+  month:   number
+  income:  number
   expense: number
+  savings: number
 }
 
-// ── 요청 DTO ───────────────────────────────────────────────────────────────
-export interface CreateTransactionRequest {
-  amount: number
-  date: string
-  memo?: string
-  type: TransactionType
-  categoryId: number
-  paymentMethodId: number
+// ── 스토어 action 파라미터 타입 ──────────────────────────────────────────────
+
+export interface CreateTransactionParams {
+  amount:            number
+  date:              string
+  type:              import('@/database/db').TransactionType
+  categoryId:        number
+  paymentMethodId?:  number
+  savingsMethodId?:  number
+  memo?:             string
   isIncludedInTotal: boolean
-  recurringTransactionId?: number
 }
 
-export interface CreateCategoryRequest {
-  name: string
-  type: CategoryType
-}
-
-export interface CreatePaymentMethodRequest {
-  name: string
-  type: PaymentMethodType
-  pointBudgetId?: number
-}
-
-export interface CreatePointBudgetRequest {
-  name: string
-  totalAmount: number
-}
-
-export interface CreateRecurringTransactionRequest {
-  amount: number
-  categoryId: number
-  paymentMethodId: number
-  dayOfMonth: number
-  memo?: string
-  startDate?: string
-  endDate?: string
-}
-
-export interface CreateInstallmentTransactionRequest {
-  totalAmount: number
+export interface CreateInstallmentParams {
+  totalAmount:       number
   totalInstallments: number
-  startDate: string
-  categoryId: number
-  paymentMethodId: number
-  memo?: string
+  startDate:         string
+  categoryId:        number
+  paymentMethodId:   number
+  memo?:             string
   isIncludedInTotal: boolean
+}
+
+export interface CreateRecurringParams {
+  amount:           number
+  type:             import('@/database/db').TransactionType
+  categoryId:       number
+  paymentMethodId?: number
+  savingsMethodId?: number
+  dayOfMonth:       number
+  startDate:        string
+  endDate?:         string
+  memo?:            string
+}
+
+export interface UpdateInstallmentParams {
+  totalAmount:       number
+  totalInstallments: number
+  categoryId:        number
+  paymentMethodId:   number
+  memo?:             string
+}
+
+export interface UpdateRecurringParams {
+  amount?:          number
+  categoryId?:      number
+  paymentMethodId?: number
+  savingsMethodId?: number
+  dayOfMonth?:      number
+  endDate?:         string
+  memo?:            string
 }

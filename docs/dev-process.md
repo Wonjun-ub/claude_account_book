@@ -95,16 +95,17 @@ hotfix/*  →  PR to main  →  서버 자동 배포  →  main을 develop에 �
 
 | 검증 항목 | Sprint | Hotfix | deploy-prod | 실행 방식 | 구현 상태 |
 |-----------|--------|--------|-------------|----------|----------|
-| `dotnet test` (백엔드 단위 테스트) | ✅ | ✅ | — | CI PR 체크 자동 | **구현 완료** |
+| ~~`dotnet test` (백엔드 단위 테스트)~~ | ~~✅~~ | ~~✅~~ | ~~—~~ | ~~CI PR 체크 자동~~ | ~~**구현 완료**~~ *(⚠️ Deprecated)* |
 | `npm test` (프론트엔드 단위 테스트) | ✅ | ✅ | — | CI PR 체크 자동 | **구현 완료** |
-| Render 헬스체크 (`/api/health`) | — | — | ✅ | 자동 | **구현 완료** |
-| 로컬 직접 실행 검증 (`dotnet run` + `npm run dev`) | ⬜ | ⬜ | — | 수동 | — |
-| `dotnet ef database update` | ⬜ DB변경시 | — | ⬜ DB변경시 | 수동 | — |
+| ~~Render 헬스체크 (`/api/health`)~~ | ~~—~~ | ~~—~~ | ~~✅~~ | ~~자동~~ | ~~**구현 완료**~~ *(⚠️ Deprecated — 백엔드 제거)* |
+| 로컬 직접 실행 검증 (`npm run dev`) | ⬜ | ⬜ | — | 수동 | — |
+| ~~`dotnet ef database update`~~ | ~~⬜ DB변경시~~ | ~~—~~ | ~~⬜ DB변경시~~ | ~~수동~~ | ~~—~~ *(⚠️ Deprecated)* |
 | UI 디자인/시각적 품질 판단 | ⬜ | — | ⬜ | 수동 | — |
-| API curl 검증 | — | — | — | — | **미구현 (계획)** |
+| ~~API curl 검증~~ | ~~—~~ | ~~—~~ | ~~—~~ | ~~—~~ | ~~**미구현 (계획)**~~ *(⚠️ Deprecated)* |
 | Playwright E2E 검증 | — | — | — | — | **미구현 (계획)** |
 
-> **CI 자동 검증**: `dotnet test`와 `npm test`는 PR 생성 시 GitHub Actions가 자동 실행합니다 (`.github/workflows/ci.yml`). 로컬에서 수동으로 실행할 수도 있습니다.
+> **CI 자동 검증**: `npm test`는 PR 생성 시 GitHub Actions가 자동 실행합니다 (`.github/workflows/ci.yml`). 로컬에서 수동으로 실행할 수도 있습니다.
+> ~~`dotnet test`는 v2.0 Local-first 전환으로 백엔드 제거됨에 따라 더 이상 실행되지 않습니다.~~
 
 ### 검증 결과 기록
 
@@ -120,10 +121,11 @@ hotfix/*  →  PR to main  →  서버 자동 배포  →  main을 develop에 �
 ### 6.1 로컬 스테이징 (develop 브랜치)
 
 ```bash
+# ⚠️ Deprecated (v2.0 이후 백엔드 제거)
 # 백엔드
-cd backend/BudgetTracker.Api && dotnet run
+# cd backend/BudgetTracker.Api && dotnet run
 
-# 프론트엔드 (별도 터미널)
+# 프론트엔드
 cd frontend && npm run dev
 ```
 
@@ -137,10 +139,10 @@ cd frontend && npm run dev
 ### 6.3 실서버 검증 (Render)
 
 ```bash
-# 헬스체크
-curl -s https://budget-tracker-api-51n7.onrender.com/api/health
+# ⚠️ Deprecated — v2.0 이후 백엔드 API 없음 (헬스체크 불필요)
+# curl -s https://budget-tracker-api-51n7.onrender.com/api/health
 
-# Render 대시보드에서 배포 로그 확인
+# Render 대시보드에서 프론트엔드 배포 로그 확인
 # https://dashboard.render.com
 ```
 
@@ -150,18 +152,15 @@ curl -s https://budget-tracker-api-51n7.onrender.com/api/health
 
 Render 대시보드 → 해당 서비스 → "Deploys" 탭 → 이전 성공 배포 선택 → "Rollback to this deploy"
 
-#### B. DB 포함 롤백 (주의: 데이터 손실 가능)
+#### ~~B. DB 포함 롤백~~ *(⚠️ Deprecated — v2.0 Local-first 전환으로 서버 DB 없음)*
 
 ```bash
+# ⚠️ Deprecated (v2.0 이후 Supabase PostgreSQL 및 EF Core 제거)
 # 롤백 전 반드시 Supabase 대시보드에서 백업 스냅샷 생성
-
-# EF Core 이전 마이그레이션으로 다운그레이드 (로컬에서 실행)
-cd backend/BudgetTracker.Api
-dotnet ef database update <이전_마이그레이션_이름>
-# 마이그레이션 목록 확인: dotnet ef migrations list
+# cd backend/BudgetTracker.Api
+# dotnet ef database update <이전_마이그레이션_이름>
+# dotnet ef migrations list
 ```
-
-> ⚠️ Supabase 무료 플랜은 자동 백업을 제공하지 않습니다. DB 스키마 변경 전 수동 백업을 권장합니다.
 
 #### C. 긴급 서비스 중단
 
@@ -183,20 +182,22 @@ sprint-close agent의 4단계 및 hotfix-close agent의 3단계에서 이 체크
 
 ### 성능
 
-- [ ] N+1 쿼리 없음 (EF Core `.Include()` 로딩 전략 확인)
-- [ ] 불필요한 API 호출 없음 (`docs/frontend-data-rule.md` 규칙 준수)
-- [ ] 리스트 응답에 페이지네이션 적용
+- [ ] ~~N+1 쿼리 없음 (EF Core `.Include()` 로딩 전략 확인)~~ *(⚠️ Deprecated — v2.0 이후 Dexie.js IndexedDB 사용)*
+- [ ] 불필요한 DB 호출 없음 (`docs/frontend-data-rule.md` 규칙 준수)
+- [ ] ~~리스트 응답에 페이지네이션 적용~~ *(⚠️ Deprecated — 서버 API 없음)*
 
 ### 코드 품질
 
 - [ ] TypeScript 타입 안전성 (any 사용 최소화)
-- [ ] 에러 핸들링 (.NET 서비스 튜플 패턴, Vue3 try/catch)
-- [ ] 백엔드 계층 역할 준수 (`docs/backend-architecture.md` 참조)
+- [ ] 에러 핸들링 (Vue3 try/catch, Dexie.js 트랜잭션 오류 처리)
+- [ ] ~~백엔드 계층 역할 준수 (`docs/backend-architecture.md` 참조)~~ *(⚠️ Deprecated — 백엔드 제거)*
 
 ### 테스트
 
-- [ ] 새 기능에 `dotnet test` 테스트 추가 여부
-- [ ] 기존 테스트 회귀 없음 (`dotnet test` 통과)
+- [ ] ~~새 기능에 `dotnet test` 테스트 추가 여부~~ *(⚠️ Deprecated — 백엔드 제거)*
+- [ ] ~~기존 테스트 회귀 없음 (`dotnet test` 통과)~~ *(⚠️ Deprecated — 백엔드 제거)*
+- [ ] 새 기능에 `npm test` (Vitest) 테스트 추가 여부
+- [ ] 기존 테스트 회귀 없음 (`npm test` 통과)
 
 ### 패턴 준수
 
@@ -233,8 +234,8 @@ sprint-close agent의 4단계 및 hotfix-close agent의 3단계에서 이 체크
 | 변경 유형 | 업데이트 페이지 |
 |-----------|----------------|
 | 새 버전 배포 | 릴리즈 노트 (최상단 추가) |
-| DB 스키마 변경 | 데이터 모델 |
-| API 변경/추가 | API 명세 |
+| ~~DB 스키마 변경~~ | ~~데이터 모델~~ *(⚠️ Deprecated — v2.0 이후 DB 없음)* |
+| ~~API 변경/추가~~ | ~~API 명세~~ *(⚠️ Deprecated — v2.0 이후 서버 API 없음)* |
 | 새 기능 추가 | 기능 명세 |
 | 아키텍처 변경 | 시스템 아키텍처 (Mermaid 다이어그램 포함) |
 

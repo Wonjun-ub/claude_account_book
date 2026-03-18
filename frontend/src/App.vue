@@ -1,15 +1,26 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
-import { useAppStore } from '@/stores/app'
+import { useSettingsStore } from '@/stores/app'
+import { useCategoryStore } from '@/stores/category'
+import { usePaymentMethodStore } from '@/stores/paymentMethod'
+import { seedDatabase } from '@/database/db'
 import AppDialog from '@/components/AppDialog.vue'
 
-const store = useAppStore()
+const settingsStore    = useSettingsStore()
+const categoryStore    = useCategoryStore()
+const paymentMethodStore = usePaymentMethodStore()
 const route = useRoute()
 
-onMounted(() => {
+onMounted(async () => {
   if (route.path !== '/mock-up') {
-    store.loadMasterData()
+    await seedDatabase()
+    await Promise.all([
+      settingsStore.loadSettings(),
+      categoryStore.loadCategories(),
+      paymentMethodStore.loadPaymentMethods(),
+      paymentMethodStore.loadSavingsMethods(),
+    ])
   }
 })
 </script>

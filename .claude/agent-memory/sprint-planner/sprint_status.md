@@ -92,18 +92,81 @@ type: project
 - 수동 검증 미완료: docker compose 환경에서 전체 플로우 검증 필요 (deploy.md 참조)
 
 ## Sprint 6
-- 상태: ⬜ 예정 (Sprint 4 완료 + 카드 결제 현황 요구사항 확정 후)
-- 유형: 구현
+- 상태: ✅ 완료 (2026-03-16)
+- 유형: 목업
 - 브랜치: `sprint6`
-- 목표: 카드 결제 현황 탭 신규 구현 (DB + 백엔드 + 프론트 연동)
+- 목표: 카드 결제 현황 + 홈 탭 UI 개선 목업 확정
 - 계획 문서: `docs/sprint/sprint6.md`
-- DB 스키마 변경: PaymentMethods에 BillingCutoffDay, PaymentDueDay 추가
+- DB 스키마 변경: 없음
 
-**구현 범위:**
-- T34: DB 마이그레이션 (카드 청구 설정 컬럼)
-- T35: 카드 청구 설정 API (기존 PUT 확장)
-- T36: 카드 결제 현황 백엔드 API (2슬롯 계산 — 케이스 A/B)
-- T37: 프론트엔드 mock → 실제 API 교체
+**달성 사항:**
+- Step 1: 홈 탭 목업 전체 개선 v3 (다크모드, 저축 수단, 필터 아코디언, 카드 결제 위젯, 반복 배너 개선)
+- Step 2: UI/UX 승인 완료 (2026-03-16)
+- 카드 결제 현황 실서비스 구현은 Sprint 9로 이관
 
-**Why:** 목업 → 구현 순서 원칙에 따라 Sprint 4(목업)에서 두 기능을 동시 검증 후, Sprint 5(할부), Sprint 6(카드 현황) 순으로 실제 구현
-**How to apply:** DB 스키마 변경 있는 스프린트(5, 6)는 반드시 로컬 PostgreSQL 검증 후 Supabase 적용
+## Sprint 7
+- 상태: ✅ 완료 (2026-03-17)
+- 유형: 목업
+- 브랜치: `sprint7`
+- 목표: MockupView 통계 탭 UI/UX 목업 확정
+- 계획 문서: `docs/sprint/sprint7.md`
+- DB 스키마 변경: 없음
+- 머지: sprint7 → develop (commit: 7353d16)
+
+**달성 사항:**
+- T38: 통계 탭 다크모드 목업 (카테고리 도넛 차트, 수입/지출/저축 탭, 전월 비교 4열 카드)
+- T39: 최근 6개월 막대 추이 (수입/지출/저축 3색, 다크모드 그리드)
+- 추가 개선: 수입 대비 %, 잔액 바, 범례 비율 표시
+- Step 2 승인 완료 (2026-03-17)
+- npm run build 성공 (TypeScript 오류 0건)
+
+**주의사항:**
+- MockupView.vue 파일이 계속 증가 중 → Sprint 9 실서비스 이관 시 각 View로 분리 예정
+
+## Sprint 8
+- 상태: ✅ 완료 (2026-03-17)
+- 유형: 목업
+- 브랜치: `sprint8`
+- 목표: MockupView 설정 탭 UI/UX 목업 확정 + Local-first v2.0 전환 문서화
+- 계획 문서: `docs/sprint/sprint8.md`
+- DB 스키마 변경: 없음
+
+**달성 사항:**
+- T40: 카드 청구 설정 — 결제수단 행 클릭 시 정산일/결제일 인라인 전개
+- T41: 저축 수단 관리 — 기업은행/카카오뱅크/현금 기본값, 추가/삭제
+- T42: 반복 거래 관리 설정 탭 제거 확정 (홈 화면 바텀 시트에서 직접 처리)
+- T43: 카테고리 관리 — 수입/지출/저축 탭 구분, 기본값 삭제 불가, 추가 폼
+- T44: 결제수단 관리 — 신용/체크/현금/포인트 타입 구분, 인라인 설정
+- 할부 수정 UX: 반복 거래와 동일한 바텀 시트 방식으로 통일 (이번달만/전체)
+- 반복 등록 시 과거 회차 즉시 생성 버그 수정 (startDate~오늘 범위)
+- Local-first v2.0 문서화: CLAUDE.md, docs/ 전반, Dexie 스키마(db.ts), VitePWA 설정
+- Step 2 승인 완료 (2026-03-17)
+- npm run build 성공 (TypeScript 오류 0건)
+
+**주의사항:**
+- MockupView.vue 파일이 대형화 — Sprint 9 실서비스 이관 시 각 View로 분리 필수
+
+## Sprint 9
+- 상태: ✅ 완료 (2026-03-17)
+- 유형: 구현 (Local-first)
+- 브랜치: `sprint9`
+- 목표: MockupView 전체 기능을 Dexie.js 기반 실서비스로 이관 (HomeView + StatsView + SettingsView)
+- 계획 문서: `docs/sprint/sprint9.md`
+- DB/백엔드 변경: 없음 (IndexedDB 기반, 백엔드 완전 제거)
+- PR: sprint9 → develop
+
+**달성 사항:**
+- T34: Pinia stores 4개 구현 (useSettingsStore, useCategoryStore, usePaymentMethodStore, useTransactionStore)
+- T35: 거래 CRUD — 단건/할부/반복 생성·수정·삭제 (db.ts 헬퍼 활용)
+- T36: 카드 결제 현황 로컬 계산 (cardBilling.ts 유틸 신규)
+- T37: 반복 거래 자동 적용 (loadTransactions 내 applyRecurringForMonth 호출)
+- T45~T47: 저축 수단/설정 CRUD, 포인트 잔액 차감/복구 (Dexie 트랜잭션 보장)
+- T48~T50: HomeView/StatsView/SettingsView 전면 재작성 (다크모드)
+- T51: PWA 아이콘 생성 (gray-900 배경, gen-icons.cjs 스크립트)
+- Vitest 30건 추가 (총 84건 PASS): CRUD, 포인트 rollback, cardBilling 유틸
+- npm run build TypeScript 오류 0건
+
+**주의사항:**
+- frontend/src/api/ 디렉토리 미삭제 — 추후 별도 정리 필요
+- 수동 검증(로컬 직접 실행, PWA Manifest) 미완료 — deploy.md 참조
+- 다음 스프린트 번호: Sprint 10
